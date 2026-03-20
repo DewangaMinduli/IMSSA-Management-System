@@ -245,10 +245,10 @@ const JuniorTreasurerDashboard = () => {
                                 <tbody>
                                     {data.transactions.slice(0, 5).map(tx => (
                                         <tr key={tx.transaction_id} className="border-b border-gray-50 hover:bg-gray-50">
-                                            <td className="p-3 text-gray-600">{new Date(tx.date).toLocaleDateString()}</td>
+                                            <td className="p-3 text-gray-600">{new Date(tx.transaction_date).toLocaleDateString()}</td>
                                             <td className="p-3 font-medium text-gray-800">{tx.description}</td>
-                                            <td className={`p-3 text-right font-bold ${tx.type === 'Income' ? 'text-green-600' : 'text-red-500'}`}>
-                                                {tx.type === 'Income' ? '+' : '-'} {Number(tx.amount).toLocaleString()}
+                                            <td className={`p-3 text-right font-bold ${tx.transaction_type === 'Income' ? 'text-green-600' : 'text-red-500'}`}>
+                                                {tx.transaction_type === 'Income' ? '+' : '-'} {Number(tx.amount).toLocaleString()}
                                             </td>
                                         </tr>
                                     ))}

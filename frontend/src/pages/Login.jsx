@@ -53,8 +53,9 @@ const MemberLogin = () => {
           roleName = 'Academic Staff';
         } else if (data.user.role === 'executive') {
           userType = 'Executive';
-          roleName = 'Executive Board';
-          level = 4;
+          // Preserve President, Junior Treasurer, etc if available.
+          roleName = data.user.role_name || 'Executive Board'; 
+          level = data.user.hierarchy_level || 4;
         }
 
         const sidebarUser = {
@@ -70,18 +71,13 @@ const MemberLogin = () => {
         console.log("Login Success:", data);
 
         // Redirect based on role
-        // Redirect based on role
-        // Redirect based on role
-        // Redirect based on role
-        if (data.user.name === 'Dr. Amila Withanaarachchi' || data.user.name.includes('Amila') || data.user.role === 'senior_treasurer') {
+        if (roleName === 'Senior Treasurer' || roleName === 'Senior_Treasurer' || userType === 'Academic_Staff' || userType === 'Academic Staff' || roleName === 'Academic Staff' || roleName === 'Academic_Staff') {
           navigate('/academic-staff/senior-treasurer-dashboard');
-        } else if (data.user.student_number === 'IM/2022/006' || data.user.name === 'Sanjani Mapa' || data.user.name.includes('Sanjani')) {
+        } else if (roleName === 'Organizing_Committee') {
           navigate('/member/oc-dashboard');
-        } else if (roleName === 'Academic Staff' || userType === 'Academic Staff' || data.user.role === 'Academic Staff' || data.user.role === 'academic_staff') {
-          navigate('/academic-staff/dashboard');
-        } else if (data.user.role === 'executive') {
+        } else if (roleName === 'President' || (data.user.role === 'executive' && roleName !== 'Junior Treasurer' && roleName !== 'Junior_Treasurer')) {
           navigate('/exec/dashboard');
-        } else if (data.user.role_name === 'Junior Treasurer' || data.user.hierarchy_level === 5) {
+        } else if (roleName === 'Junior Treasurer' || roleName === 'Junior_Treasurer') {
           navigate('/exec/junior-treasurer-dashboard');
         } else {
           navigate('/member/dashboard');

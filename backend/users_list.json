@@ -1,0 +1,20 @@
+[
+  {
+    "ID": 1,
+    "StudentID": "IM/2020/001",
+    "email": "pres@gmail.com",
+    "role": "member"
+  },
+  {
+    "ID": 2,
+    "StudentID": "IM/2022/037",
+    "email": "member@gmail.com",
+    "role": "member"
+  },
+  {
+    "ID": 3,
+    "StudentID": "ST/001",
+    "email": "lecturer@kln.ac.lk",
+    "role": "member"
+  }
+]

@@ -1,0 +1,11 @@
+﻿commit b9fe8e8a15e8cf85b5dec46a7396e8317e6a54a1
+Author: Dewanga <dewangagunawardana7gmail.com>
+Date:   Sat Mar 14 11:10:36 2026 +0530
+
+    integrate core system logic including email verification and database schema updates
+
+backend/scripts/alter_user_role.js
+backend/scripts/check_columns.js
+backend/scripts/list_users.js
+backend/scripts/reset_password.js
+backend/scripts/update_role.js

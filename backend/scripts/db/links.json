@@ -1,0 +1,53 @@
+{
+  "skill_tag": [
+    "tag_id",
+    "name"
+  ],
+  "member_skill_level": [
+    "id",
+    "user_id",
+    "skill_tag_id",
+    "points",
+    "last_verified_at"
+  ],
+  "task_assignment": [
+    "assignment_id",
+    "task_id",
+    "assigned_user_id",
+    "status",
+    "submission_text",
+    "submission_file_url",
+    "verified_by_user_id"
+  ],
+  "task": [
+    "task_id",
+    "event_id",
+    "title",
+    "description",
+    "deadline",
+    "created_by_user_id",
+    "is_volunteer_opportunity",
+    "proof_type",
+    "priority",
+    "status"
+  ],
+  "task_skill": [
+    "id",
+    "task_id",
+    "skill_tag_id"
+  ],
+  "event_coordinator": [
+    "id",
+    "event_id",
+    "user_id",
+    "designation"
+  ],
+  "member_role": [
+    "id",
+    "user_id",
+    "role_id",
+    "term_id",
+    "status",
+    "assigned_at"
+  ]
+}
