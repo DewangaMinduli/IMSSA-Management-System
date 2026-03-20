@@ -48,13 +48,17 @@ const MemberLogin = () => {
         let roleName = data.user.role_name || 'Member';
         let level = data.user.hierarchy_level || 1;
 
-        if (data.user.role === 'academic_staff' || data.user.user_type === 'Academic Staff') {
-          userType = 'Academic Staff';
+        if (data.user.role === 'senior_treasurer') {
+          // Senior Treasurer is Academic Staff with a special financial role — preserve it
+          userType = 'Academic_Staff';
+          roleName = data.user.role_name || 'Senior Treasurer';
+        } else if (data.user.role === 'academic_staff') {
+          // Regular Academic Staff
+          userType = 'Academic_Staff';
           roleName = 'Academic Staff';
         } else if (data.user.role === 'executive') {
           userType = 'Executive';
-          // Preserve President, Junior Treasurer, etc if available.
-          roleName = data.user.role_name || 'Executive Board'; 
+          roleName = data.user.role_name || 'Executive Board';
           level = data.user.hierarchy_level || 4;
         }
 
@@ -68,11 +72,11 @@ const MemberLogin = () => {
         // Use Auth Context to Login and Save
         login(sidebarUser, data.token, rememberMe);
 
-        console.log("Login Success:", data);
-
-        // Redirect based on role
-        if (roleName === 'Senior Treasurer' || roleName === 'Senior_Treasurer' || userType === 'Academic_Staff' || userType === 'Academic Staff' || roleName === 'Academic Staff' || roleName === 'Academic_Staff') {
+        // Redirect based on role — Senior Treasurer gets their dashboard, regular Academic Staff get theirs
+        if (data.user.role === 'senior_treasurer' || roleName === 'Senior Treasurer' || roleName === 'Senior_Treasurer') {
           navigate('/academic-staff/senior-treasurer-dashboard');
+        } else if (data.user.role === 'academic_staff') {
+          navigate('/academic-staff/dashboard');
         } else if (roleName === 'Organizing_Committee') {
           navigate('/member/oc-dashboard');
         } else if (roleName === 'President' || (data.user.role === 'executive' && roleName !== 'Junior Treasurer' && roleName !== 'Junior_Treasurer')) {

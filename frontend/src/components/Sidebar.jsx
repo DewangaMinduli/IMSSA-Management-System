@@ -37,7 +37,8 @@ const Sidebar = () => {
     // COMMON: Dynamic Home Link
     {
       name: 'Home',
-      path: (user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff') ? '/academic-staff/senior-treasurer-dashboard' :
+      path: (user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer') ? '/academic-staff/senior-treasurer-dashboard' :
+        (user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff') ? '/academic-staff/dashboard' :
         (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer') ? '/exec/junior-treasurer-dashboard' :
         (user.role_name === 'Organizing_Committee') ? '/member/oc-dashboard' :
         (user.hierarchy_level >= 4 ? '/exec/dashboard' : '/member/dashboard'),
