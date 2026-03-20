@@ -14,6 +14,7 @@ import MemberProfile from './pages/member/MemberProfile';
 import MemberFeedback from './pages/member/MemberFeedback';
 import MemberRequestLetter from './pages/member/MemberRequestLetter';
 import ExecutiveDashboard from './pages/executive/ExecutiveDashboard';
+import PresidentDashboard from './pages/executive/PresidentDashboard';
 import JuniorTreasurerDashboard from './pages/executive/JuniorTreasurerDashboard';
 import AcademicStaffDashboard from './pages/academic-staff/AcademicStaffDashboard';
 import SeniorTreasurerDashboard from './pages/academic-staff/SeniorTreasurerDashboard';
@@ -80,6 +81,7 @@ export default function App() {
             <Layout>
               <Routes>
                 <Route path="dashboard" element={<ExecutiveDashboard />} />
+                <Route path="president-dashboard" element={<PresidentDashboard />} />
                 <Route path="junior-treasurer-dashboard" element={<JuniorTreasurerDashboard />} />
                 <Route path="create-event" element={<CreateEvent />} />
                 <Route path="nominate-term" element={<NominateTerm />} />

@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import VolunteerTaskModal from '../../components/VolunteerTaskModal';
 
-const ExecutiveDashboard = () => {
+const PresidentDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [selectedVolunteerTask, setSelectedVolunteerTask] = useState(null);
@@ -29,7 +29,7 @@ const ExecutiveDashboard = () => {
         fetchEvents();
     }, []);
 
-    // Placeholder until task APIs exist
+    // --- MOCK until task APIs exist ---
     const [tasksToApprove] = useState([]);
     const [myTasks] = useState([]);
     const [volunteerOps] = useState([]);
@@ -68,9 +68,9 @@ const ExecutiveDashboard = () => {
                         <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
                     </div>
                     <Home size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer transition-colors" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-emerald-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700">Executive</div>
+                    <div className="bg-emerald-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700">President</div>
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm">
-                        {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'E'}
+                        {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'P'}
                     </div>
                 </div>
             </div>
@@ -80,15 +80,23 @@ const ExecutiveDashboard = () => {
                 {/* TITLE & ACTION BUTTONS */}
                 <div className="flex justify-between items-end mb-8">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Executive Board Dashboard</h2>
-                        <p className="text-sm text-gray-500 font-medium">{user?.role_name || 'Executive Board'} View</p>
+                        <h2 className="text-2xl font-bold text-gray-900">President Dashboard</h2>
+                        <p className="text-sm text-gray-500 font-medium">President View</p>
                     </div>
-                    <button
-                        onClick={() => navigate('/member/request-letter')}
-                        className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition-all text-xs"
-                    >
-                        <FileText size={16} /> Request Letter
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => navigate('/exec/create-event')}
+                            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition-all text-xs"
+                        >
+                            <Calendar size={16} /> Create Event
+                        </button>
+                        <button
+                            onClick={() => navigate('/member/request-letter')}
+                            className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition-all text-xs"
+                        >
+                            <FileText size={16} /> Request Letter
+                        </button>
+                    </div>
                 </div>
 
                 {/* PROFILE CARD */}
@@ -98,11 +106,11 @@ const ExecutiveDashboard = () => {
                             onClick={() => navigate('/member/profile')}
                             className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-3xl cursor-pointer hover:bg-emerald-200 transition-colors"
                         >
-                            {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'E'}
+                            {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'P'}
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-gray-900">{user?.full_name || user?.name || 'Executive Member'}</h3>
-                            <p className="text-sm text-gray-500 mb-2">{user?.student_no || ''} • {user?.role_name || 'Executive Board'}</p>
+                            <h3 className="text-xl font-bold text-gray-900">{user?.full_name || user?.name || 'President'}</h3>
+                            <p className="text-sm text-gray-500 mb-2">{user?.student_no || ''} • President</p>
                         </div>
                     </div>
                     <button onClick={() => navigate('/member/feedback')} className="bg-teal-100/50 text-teal-700 hover:bg-teal-100 px-6 py-2 rounded-lg text-sm font-medium transition-colors">
@@ -121,9 +129,14 @@ const ExecutiveDashboard = () => {
                             <div>
                                 <h4 className="font-bold text-gray-800 text-sm mb-1">{task.title}</h4>
                                 <p className="text-xs text-gray-500 line-clamp-2 mb-4">{task.desc}</p>
+                                <div className="space-y-2 text-xs text-gray-500 mb-4">
+                                    <p>Due: {task.due}</p>
+                                    <p>Assigned to: <span className="font-semibold text-gray-700">{task.assignedTo}</span></p>
+                                    <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold">Event: {task.event}</span>
+                                </div>
                             </div>
                             <div className="flex justify-end pt-3 border-t border-gray-50">
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold">Review</button>
+                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition-colors">Review</button>
                             </div>
                         </div>
                     ))}
@@ -140,6 +153,8 @@ const ExecutiveDashboard = () => {
                             <h4 className="font-bold text-gray-800 text-sm mb-2">{task.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-grow">{task.desc}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {task.due}</div>
+                            <div className="mb-4"><span className="px-2 py-1 bg-teal-100 text-teal-800 rounded text-[10px] font-bold">Event: {task.event}</span></div>
+                            <div className="pt-3 border-t border-gray-50 text-[10px] text-gray-400">Assigned to: You</div>
                         </div>
                     ))}
                 </ScrollSection>
@@ -152,8 +167,10 @@ const ExecutiveDashboard = () => {
                         </div>
                     ) : volunteerOps.map(op => (
                         <div key={op.id} onClick={() => setSelectedVolunteerTask(op)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition-shadow snap-start cursor-pointer group">
-                            <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600">{op.title}</h4>
+                            <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{op.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2">{op.desc}</p>
+                            <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {op.due}</div>
+                            <div className="mb-4"><span className={`px-2 py-1 rounded text-[10px] font-bold ${op.color}`}>Event: {op.event}</span></div>
                             <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
                                 <span className="text-xs font-medium">Click to View</span>
                                 <ChevronRight size={14} />
@@ -189,6 +206,24 @@ const ExecutiveDashboard = () => {
                     ))}
                 </ScrollSection>
 
+                {/* TERM MANAGEMENT (President only) */}
+                <div id="term-management" className="space-y-4 mb-8 scroll-mt-24">
+                    <h3 className="text-lg font-bold text-gray-900">Term Management</h3>
+                    <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex justify-between items-end">
+                        <div>
+                            <h4 className="text-md font-bold text-gray-800">Current Term</h4>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">2024/2025</p>
+                            <p className="text-xs text-gray-500 mt-2">Ends on: August 31, 2025</p>
+                        </div>
+                        <button
+                            onClick={() => navigate('/exec/nominate-term')}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors"
+                        >
+                            Nominate Next Term
+                        </button>
+                    </div>
+                </div>
+
             </div>
 
             <VolunteerTaskModal
@@ -201,4 +236,4 @@ const ExecutiveDashboard = () => {
     );
 };
 
-export default ExecutiveDashboard;
+export default PresidentDashboard;

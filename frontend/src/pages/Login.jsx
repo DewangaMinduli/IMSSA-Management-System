@@ -72,14 +72,16 @@ const MemberLogin = () => {
         // Use Auth Context to Login and Save
         login(sidebarUser, data.token, rememberMe);
 
-        // Redirect based on role — Senior Treasurer gets their dashboard, regular Academic Staff get theirs
+        // Redirect based on role
         if (data.user.role === 'senior_treasurer' || roleName === 'Senior Treasurer' || roleName === 'Senior_Treasurer') {
           navigate('/academic-staff/senior-treasurer-dashboard');
         } else if (data.user.role === 'academic_staff') {
           navigate('/academic-staff/dashboard');
-        } else if (roleName === 'Organizing_Committee') {
+        } else if (data.user.role === 'organizing_committee' || roleName === 'Organizing_Committee' || roleName === 'Organizing Committee') {
           navigate('/member/oc-dashboard');
-        } else if (roleName === 'President' || (data.user.role === 'executive' && roleName !== 'Junior Treasurer' && roleName !== 'Junior_Treasurer')) {
+        } else if (roleName === 'President') {
+          navigate('/exec/president-dashboard');
+        } else if (data.user.role === 'executive' && roleName !== 'Junior Treasurer' && roleName !== 'Junior_Treasurer') {
           navigate('/exec/dashboard');
         } else if (roleName === 'Junior Treasurer' || roleName === 'Junior_Treasurer') {
           navigate('/exec/junior-treasurer-dashboard');

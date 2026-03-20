@@ -40,7 +40,8 @@ const Sidebar = () => {
       path: (user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer') ? '/academic-staff/senior-treasurer-dashboard' :
         (user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff') ? '/academic-staff/dashboard' :
         (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer') ? '/exec/junior-treasurer-dashboard' :
-        (user.role_name === 'Organizing_Committee') ? '/member/oc-dashboard' :
+        (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard' :
+        (user.role_name === 'President') ? '/exec/president-dashboard' :
         (user.hierarchy_level >= 4 ? '/exec/dashboard' : '/member/dashboard'),
       id: null,
       show: true
@@ -129,7 +130,7 @@ const Sidebar = () => {
     { name: 'My Tasks', path: (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#my-tasks' : '/exec/dashboard', id: 'my-tasks', show: (user.hierarchy_level >= 4 || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') && user.role_name !== 'Senior_Treasurer' && user.role_name !== 'Senior Treasurer' && user.user_type !== 'Academic_Staff' && user.user_type !== 'Academic Staff' },
     { name: 'Volunteer Opportunities', path: (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#volunteer-opportunities' : '/exec/dashboard', id: 'volunteer-opportunities', show: (user.hierarchy_level >= 4 || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') && user.role_name !== 'Senior_Treasurer' && user.role_name !== 'Senior Treasurer' && user.user_type !== 'Academic_Staff' && user.user_type !== 'Academic Staff' },
     { name: 'Events', path: (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#events' : '/exec/dashboard', id: 'events', show: (user.hierarchy_level >= 4 || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') && user.role_name !== 'Senior_Treasurer' && user.role_name !== 'Senior Treasurer' && user.user_type !== 'Academic_Staff' && user.user_type !== 'Academic Staff' },
-    { name: 'Term Management', path: '/exec/nominate-term', id: null, show: user.hierarchy_level >= 4 && user.role_name !== 'Senior_Treasurer' && user.role_name !== 'Senior Treasurer' && user.user_type !== 'Academic_Staff' && user.user_type !== 'Academic Staff' },
+    { name: 'Term Management', path: '/exec/nominate-term', id: null, show: user.role_name === 'President' },
 
 
   ];
