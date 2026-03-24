@@ -9,6 +9,7 @@ exports.getProfile = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT u.user_id, u.full_name, u.email, u.phone_number, u.academic_year,
                    u.academic_level, u.user_type, u.account_status, u.created_at,
+                   u.student_number,
                    COALESCE(
                        (SELECT r.role_name FROM member_role mr JOIN role r ON mr.role_id = r.role_id WHERE mr.user_id = u.user_id LIMIT 1),
                        u.user_type
@@ -124,10 +125,10 @@ exports.getSkillMembers = async (req, res) => {
 // --- RECOMMENDATION REQUESTS ---
 exports.getRecommendationRequests = async (req, res) => {
     try {
-        // Fetch requests and join with user table to get student details
         const [rows] = await db.execute(`
-            SELECT lr.request_id, lr.student_user_id as student_id, lr.lecturer_user_id as academic_staff_id, lr.requested_at as request_date, lr.status, 
-                   u.full_name, u.student_number as student_no, u.profile_image
+            SELECT lr.request_id, lr.student_user_id as student_id, lr.lecturer_user_id as academic_staff_id,
+                   lr.requested_at as request_date, lr.status, lr.purpose, lr.recipient_name, lr.company_name,
+                   u.full_name, u.student_number as student_no
             FROM letter_request lr
             JOIN user u ON lr.student_user_id = u.user_id
             ORDER BY lr.requested_at DESC
@@ -136,6 +137,24 @@ exports.getRecommendationRequests = async (req, res) => {
     } catch (error) {
         console.error("Error fetching recommendation requests:", error);
         res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+// --- SUBMIT LETTER REQUEST ---
+exports.submitLetterRequest = async (req, res) => {
+    try {
+        const { student_user_id, lecturer_user_id, purpose, recipient_name, company_name } = req.body;
+        if (!student_user_id || !lecturer_user_id || !purpose || !recipient_name || !company_name) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+        await db.execute(
+            'INSERT INTO letter_request (student_user_id, lecturer_user_id, purpose, recipient_name, company_name, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [student_user_id, lecturer_user_id, purpose, recipient_name, company_name, 'Pending']
+        );
+        res.status(201).json({ message: 'Request submitted successfully' });
+    } catch (error) {
+        console.error('Error submitting letter request:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 };
 

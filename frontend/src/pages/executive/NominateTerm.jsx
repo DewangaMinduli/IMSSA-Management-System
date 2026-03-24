@@ -27,11 +27,11 @@ const NominateTerm = () => {
     const handleSubmit = (e) => {
         e.preventDefault();
         setLoading(true);
-        console.log("Nominating:", board);
+        console.log("Assigning:", board);
 
         setTimeout(() => {
             setLoading(false);
-            alert("Nominations Submitted Successfully!");
+            alert("Assignments Submitted Successfully!");
             navigate('/exec/dashboard');
         }, 1500);
     };
@@ -69,7 +69,7 @@ const NominateTerm = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-10 min-h-[600px] flex flex-col justify-between">
 
                     <div>
-                        <h2 className="text-xl font-bold text-gray-800 mb-10">Nominate Next Term (2025/26)</h2>
+                        <h2 className="text-xl font-bold text-gray-800 mb-10">Assign Next Term (2025/26)</h2>
 
                         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
 
@@ -189,10 +189,10 @@ const NominateTerm = () => {
                                     Cancel
                                 </button>
                                 <button type="submit" className="bg-blue-200 text-blue-800 px-6 py-2 rounded-lg text-sm font-semibold hover:bg-blue-300">
-                                    Add Nominations
+                                    Add Assignments
                                 </button>
                                 <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-md">
-                                    Submit Nominations
+                                    Submit Assignments
                                 </button>
                             </div>
 

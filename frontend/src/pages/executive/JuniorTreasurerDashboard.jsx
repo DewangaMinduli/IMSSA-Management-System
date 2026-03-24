@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import {
     DollarSign, TrendingUp, TrendingDown, Calendar,
     FileText, Plus, Upload, CreditCard, ChevronRight, AlertTriangle,
-    Bell, Home, Users, Clock, Printer, Download, X
+    Bell, Home, Users, Clock, Printer, Download, X, ArrowRight
 } from 'lucide-react';
 import VolunteerTaskModal from '../../components/VolunteerTaskModal';
+import UserDropdown from '../../components/UserDropdown';
 
 const JuniorTreasurerDashboard = () => {
     const { user } = useAuth();
@@ -24,28 +25,10 @@ const JuniorTreasurerDashboard = () => {
         events: []
     });
 
-    // MOCK DATA
-    const [tasksToApprove] = useState([
-        { id: 1, title: "Approve Budget for Decorations", desc: "Review the decoration budget for Freshers Night", due: "2025-07-12", assignedTo: "Nipun Jayasekara", event: "Freshers Night" },
-        { id: 2, title: "Verify Sponsorship Receipt", desc: "Verify the bank slip for Rs 50,000 from MAS", due: "2025-07-13", assignedTo: "Kasun Perera", event: "hackX 10.0" },
-    ]);
-
-    const [myTasks] = useState([
-        { id: 101, title: "Finalize Sponsorship List", desc: "Collect all sponsorship agreements", due: "2025-10-25", event: "hackX 10.0" },
-        { id: 102, title: "Update Petty Cash Log", desc: "Reconcile physical cash with system balance", due: "2025-10-26", event: "General" }
-    ]);
-
-    const [volunteerOps] = useState([
-        { id: 1, title: "Ticket Counter Management", desc: "Manage ticket sales at the entrance", due: "2025-08-06", event: "hackX 10.0", color: "bg-teal-100 text-teal-800" },
-        { id: 2, title: "Sponsorship Coordinator", desc: "Coordinate with sponsors on event day", due: "2025-08-06", event: "hackX 10.0", color: "bg-blue-100 text-blue-800" },
-        { id: 3, title: "Logistics Support", desc: "Help move equipment for the main stage", due: "2025-09-01", event: "Exposition", color: "bg-orange-100 text-orange-800" },
-    ]);
-
-    const [execEvents] = useState([
-        { id: 1, name: "hackX 10.0", dateRange: "July 19 - Nov 11, 2025", phase: "Planning", oc: "Dineth, Kavindi", tasks: 12 },
-        { id: 2, name: "Freshers Night", dateRange: "Aug 15, 2025", phase: "Execution", oc: "Tharushi", tasks: 5 },
-        { id: 3, name: "Exposition 2025", dateRange: "Sep 05, 2025", phase: "Initial Planning", oc: "Kasun, Sanduni", tasks: 8 }
-    ]);
+    // Placeholder — tasks hold until event system is live
+    const [tasksToApprove] = useState([]);
+    const [myTasks] = useState([]);
+    const [volunteerOps] = useState([]);
 
     // Form State
     const [form, setForm] = useState({
@@ -59,24 +42,29 @@ const JuniorTreasurerDashboard = () => {
     });
 
     useEffect(() => {
-        fetchDashboardData();
-    }, []);
-
-    const fetchDashboardData = async () => {
-        try {
-            const res = await fetch('http://localhost:5000/api/finance/dashboard-summary');
-            if (res.ok) {
-                const json = await res.json();
-                setData(json);
-                // Default to first account if available
-                if (json.accounts.length > 0) setForm(prev => ({ ...prev, account_id: json.accounts[0].account_id }));
+        const init = async () => {
+            try {
+                const [finRes, evRes] = await Promise.all([
+                    fetch('http://localhost:5000/api/finance/dashboard-summary'),
+                    fetch('http://localhost:5000/api/events')
+                ]);
+                if (finRes.ok) {
+                    const json = await finRes.json();
+                    setData(json);
+                    if (json.accounts.length > 0) setForm(prev => ({ ...prev, account_id: json.accounts[0].account_id }));
+                }
+                if (evRes.ok) {
+                    const evData = await evRes.json();
+                    setData(prev => ({ ...prev, events: evData }));
+                }
+            } catch (err) {
+                console.error('Failed to fetch dashboard data', err);
+            } finally {
+                setLoading(false);
             }
-        } catch (err) {
-            console.error("Failed to fetch finance data", err);
-        } finally {
-            setLoading(false);
-        }
-    };
+        };
+        init();
+    }, []);
 
     const handleInputChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -147,17 +135,27 @@ const JuniorTreasurerDashboard = () => {
                     </div>
                     <Home size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer transition-colors"
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-orange-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-orange-700">Junior Treasurer</div>
+                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Junior Treasurer</div>
+                    <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-6 mt-8">
 
-                {/* 2. DASHBOARD TITLE & ACTION BUTTONS */}
-                <div className="flex justify-between items-end mb-8">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Junior Treasurer Dashboard</h2>
-                        <p className="text-sm text-gray-500 font-medium">Financial Operations & Overview</p>
+                {/* BACK ARROW + GREETING (inline) & ACTION BUTTONS */}
+                <div className="flex justify-between items-center mb-10">
+                    <div className="flex items-center gap-4">
+                        <ArrowRight
+                            className="transform rotate-180 text-gray-400 hover:text-gray-700 cursor-pointer transition-colors flex-shrink-0"
+                            size={22}
+                            onClick={() => window.history.back()}
+                        />
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900">
+                                Hi, {user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'there'} 👋
+                            </p>
+                            <p className="text-sm text-gray-400 mt-0.5">Welcome back.</p>
+                        </div>
                     </div>
                     <div className="flex gap-3">
                         <button
@@ -178,19 +176,17 @@ const JuniorTreasurerDashboard = () => {
                 {/* 3. PROFILE SECTION */}
                 <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 mb-10">
                     <div className="flex items-center gap-5 w-full">
-                        <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-                            <Users size={40} />
+                        <div
+                            onClick={() => navigate('/member/profile')}
+                            className="w-20 h-20 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-3xl cursor-pointer hover:bg-orange-200 transition-colors"
+                        >
+                            {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'J'}
                         </div>
                         <div>
-                            {/* UPDATED: Displays 'Buddhika Bandara' for Junior Treasurer role, else user full name */}
-                            <h3 className="text-xl font-bold text-gray-900">{(user && (user.role_name === 'Junior Treasurer' || user.role === 'Junior Treasurer')) ? 'Buddhika Bandara' : (user?.full_name || 'Junior Treasurer')}</h3>
-                            <p className="text-sm text-gray-500 mb-3">{user?.student_number} • {user?.role_name}</p>
-                            <div className="flex flex-wrap gap-2">
-                                <span className="px-3 py-1 bg-green-50 text-green-600 text-xs font-semibold rounded-full">Finance</span>
-                            </div>
+                            <h3 className="text-xl font-bold text-gray-900">{user?.full_name || user?.name || 'Junior Treasurer'}</h3>
+                            <p className="text-sm text-gray-500 mb-3">{user?.student_no || ''}{user?.student_no ? ' • ' : ''}Junior Treasurer</p>
                         </div>
                     </div>
-                    {/* UPDATED: Added Feedback Button */}
                     <button onClick={() => navigate('/member/feedback')} className="bg-teal-100/50 text-teal-700 hover:bg-teal-100 px-6 py-2 rounded-lg text-sm font-medium transition-colors">
                         Feedback
                     </button>
@@ -338,20 +334,27 @@ const JuniorTreasurerDashboard = () => {
                     ))}
                 </ScrollSection>
 
-                {/* 9. EVENTS (RENAMED from Ongoing Events) */}
+                {/* 9. EVENTS (Live from DB) */}
                 <ScrollSection id="events" title="Events">
-                    {execEvents.map(event => (
-                        <div key={event.id} className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start">
+                    {data.events.length === 0 ? (
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
+                            No events found.
+                        </div>
+                    ) : data.events.map(event => (
+                        <div key={event.event_id} onClick={() => navigate(`/events/${event.event_id}`)} className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start">
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="w-8 h-8 bg-orange-100 rounded-md flex items-center justify-center text-orange-600 font-bold text-xs">{event.name.substring(0, 2).toUpperCase()}</div>
-                                <h4 className="font-bold text-gray-800 text-sm">{event.name}</h4>
+                                <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                    {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
+                                </div>
+                                <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
                             </div>
                             <div className="space-y-3 mb-6">
-                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.dateRange}</span></div>
-                                <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">OC: {event.oc}</span></div>
+                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
+                                <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
                             </div>
                             <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <span className="text-xs text-gray-400 font-medium">{event.tasks} Active Tasks</span>
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
                                 <ChevronRight size={14} className="text-gray-300" />
                             </div>
                         </div>

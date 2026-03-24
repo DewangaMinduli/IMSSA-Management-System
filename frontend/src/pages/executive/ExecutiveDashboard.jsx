@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Users, Calendar, FileText,
-    Bell, Clock, ChevronRight, Home
+    Bell, Clock, ChevronRight, Home, ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import VolunteerTaskModal from '../../components/VolunteerTaskModal';
+import UserDropdown from '../../components/UserDropdown';
 
 const ExecutiveDashboard = () => {
     const navigate = useNavigate();
@@ -68,20 +69,27 @@ const ExecutiveDashboard = () => {
                         <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
                     </div>
                     <Home size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer transition-colors" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-emerald-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-700">Executive</div>
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm">
-                        {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'E'}
-                    </div>
+                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Executive</div>
+                    <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-6 mt-8">
 
-                {/* TITLE & ACTION BUTTONS */}
-                <div className="flex justify-between items-end mb-8">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Executive Board Dashboard</h2>
-                        <p className="text-sm text-gray-500 font-medium">{user?.role_name || 'Executive Board'} View</p>
+                {/* BACK ARROW & GREETING (inline) + ACTION BUTTONS */}
+                <div className="flex justify-between items-center mb-10">
+                    <div className="flex items-center gap-4">
+                        <ArrowRight
+                            className="transform rotate-180 text-gray-400 hover:text-gray-700 cursor-pointer transition-colors flex-shrink-0"
+                            size={22}
+                            onClick={() => window.history.back()}
+                        />
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900">
+                                Hi, {user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'there'} 👋
+                            </p>
+                            <p className="text-sm text-gray-400 mt-0.5">Welcome back.</p>
+                        </div>
                     </div>
                     <button
                         onClick={() => navigate('/member/request-letter')}

@@ -11,11 +11,12 @@ const MemberFeedback = () => {
     const [message, setMessage] = useState('');
 
     const handleBack = () => {
-        if (user && user.hierarchy_level >= 4) {
-            navigate('/exec/dashboard');
-        } else {
-            navigate('/member/dashboard');
-        }
+        const role = user?.role_name;
+        if (role === 'President') return navigate('/exec/president-dashboard');
+        if (role === 'Junior Treasurer' || role === 'Junior_Treasurer') return navigate('/exec/junior-treasurer-dashboard');
+        if (role === 'Organizing_Committee' || role === 'Organizing Committee') return navigate('/member/oc-dashboard');
+        if (user?.hierarchy_level >= 4) return navigate('/exec/dashboard');
+        navigate('/member/dashboard');
     };
 
     const handleSubmit = (e) => {

@@ -1,15 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Edit2, Trash2 } from 'lucide-react';
+import EditEventModal from '../../components/EditEventModal';
+import { useAuth } from '../../context/AuthContext';
 
 const EventDetails = () => {
     const navigate = useNavigate();
     const { eventId } = useParams();
     const [activeTab, setActiveTab] = useState('Overview');
     
+    const { user } = useAuth();
     // --- SERVER STATE ---
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const isExecutive = user?.hierarchy_level >= 4 || user?.user_type === 'Executive' || user?.role_name === 'Junior Treasurer' || user?.role_name === 'Junior_Treasurer';
+    const isPresident = user?.role_name === 'President';
+
+    const handleDelete = async () => {
+        if (!window.confirm("Are you sure you want to delete this event? All tasks and timelines will also be removed. This cannot be undone.")) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                alert("Event deleted successfully!");
+                navigate(-1);
+            } else {
+                const errData = await res.json();
+                alert(`Error: ${errData.message}`);
+            }
+        } catch (err) {
+            alert("Network error. Please try again.");
+        }
+    };
+
+    const handleEditSuccess = async () => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/details`);
+            if (res.ok) {
+                setData(await res.json());
+            }
+        } catch (e) { }
+    };
 
     useEffect(() => {
         const fetchEventDetails = async () => {
@@ -34,7 +70,7 @@ const EventDetails = () => {
     }
 
     if (!data || !data.event) {
-        return <div className="p-8 max-w-7xl mx-auto text-center mt-10"><h2 className="text-xl font-bold text-gray-800">Event Not Found</h2><button onClick={() => navigate('/member/dashboard')} className="mt-4 text-blue-600 hover:underline flex items-center justify-center gap-2"><ArrowLeft size={16}/> Back to Dashboard</button></div>;
+        return <div className="p-8 max-w-7xl mx-auto text-center mt-10"><h2 className="text-xl font-bold text-gray-800">Event Not Found</h2><button onClick={() => navigate(-1)} className="mt-4 text-blue-600 hover:underline flex items-center justify-center gap-2"><ArrowLeft size={16}/> Go Back</button></div>;
     }
 
     const { event, tasks, committee, timeline } = data;
@@ -42,17 +78,39 @@ const EventDetails = () => {
     return (
         <div className="p-8 max-w-7xl mx-auto mb-20 font-sans">
             {/* Header */}
-            <div className="mb-6">
-                <button onClick={() => navigate('/member/dashboard')} className="flex items-center gap-2 text-sm text-gray-900 font-medium mb-4 hover:underline">
-                    <ArrowLeft size={18} />
-                </button>
-                <div className="flex items-center gap-3 mb-1">
-                    <h1 className="text-2xl font-bold text-gray-900">{event.event_name}</h1>
-                    <span className={`px-3 py-1 rounded text-xs font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+            <div className="mb-6 flex justify-between items-start flex-wrap gap-4">
+                <div>
+                    <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-gray-900 font-medium mb-4 hover:underline">
+                        <ArrowLeft size={18} /> Back
+                    </button>
+                    <div className="flex items-center gap-3 mb-1">
+                        <h1 className="text-2xl font-bold text-gray-900">{event.event_name}</h1>
+                        <span className={`px-3 py-1 rounded text-xs font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Calendar size={16} />
+                        <span>{new Date(event.start_date).toLocaleDateString()} - {event.end_date ? new Date(event.end_date).toLocaleDateString() : 'TBD'}</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Calendar size={16} />
-                    <span>{new Date(event.start_date).toLocaleDateString()} - {event.end_date ? new Date(event.end_date).toLocaleDateString() : 'TBD'}</span>
+
+                {/* Actions */}
+                <div className="flex gap-3 mt-8 sm:mt-0">
+                    {isExecutive && (
+                        <button 
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                        >
+                            <Edit2 size={16} /> Edit Event
+                        </button>
+                    )}
+                    {isPresident && (
+                        <button 
+                            onClick={handleDelete}
+                            className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                        >
+                            <Trash2 size={16} /> Delete Event
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -186,6 +244,12 @@ const EventDetails = () => {
                     )}
                 </div>
             )}
+            <EditEventModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                event={event}
+                onSuccess={handleEditSuccess}
+            />
         </div>
     );
 };

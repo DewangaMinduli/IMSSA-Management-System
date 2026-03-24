@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, UserPlus, Phone } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Phone, CheckCircle } from 'lucide-react';
 import logo from '../assets/IMlogo.jpg';
 
 const Signup = () => {
@@ -21,6 +21,7 @@ const Signup = () => {
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
 
     // --- VALIDATION REGEX ---
     // Strict IM Format: IM/20XX/XXX
@@ -108,10 +109,8 @@ const Signup = () => {
             const data = await response.json();
 
             if (response.ok) {
-                setTimeout(() => {
-                    setLoading(false);
-                    navigate('/login');
-                }, 1500);
+                setLoading(false);
+                setIsSuccess(true);
             } else {
                 setError(data.message || 'Registration failed');
                 setLoading(false);
@@ -137,8 +136,26 @@ const Signup = () => {
 
             <div className="bg-mint w-full max-w-[500px] rounded-lg shadow-sm p-8">
 
-                {/* 3. USER TYPE TOGGLE */}
-                <div className="flex bg-white rounded-lg p-1 mb-6 border border-gray-200">
+                {isSuccess ? (
+                    <div className="text-center py-8 animate-fade-in-down">
+                        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <CheckCircle size={40} className="text-emerald-500" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-3">Check Your Email</h2>
+                        <p className="text-sm text-gray-500 mb-8 max-w-sm mx-auto leading-relaxed">
+                            We've sent a verification link to <br/><span className="font-semibold text-gray-800">{formData.email}</span>.<br/><br/>Please confirm your email address to activate your account and log in.
+                        </p>
+                        <button
+                            onClick={() => navigate('/login')}
+                            className="bg-primary hover:bg-blue-800 text-white font-medium px-8 py-3 rounded-md transition-all text-sm w-full shadow-sm"
+                        >
+                            Return to Sign in
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        {/* 3. USER TYPE TOGGLE */}
+                        <div className="flex bg-white rounded-lg p-1 mb-6 border border-gray-200">
                     <button
                         type="button"
                         onClick={() => setUserType('Student')}
@@ -269,9 +286,11 @@ const Signup = () => {
                     </button>
                 </form>
 
-                <div className="text-center mt-6 text-xs text-gray-500">
-                    Already have an account? <span onClick={() => navigate('/login')} className="text-primary font-semibold hover:underline cursor-pointer">Sign in</span>
-                </div>
+                    <div className="text-center mt-6 text-xs text-gray-500">
+                        Already have an account? <span onClick={() => navigate('/login')} className="text-primary font-semibold hover:underline cursor-pointer">Sign in</span>
+                    </div>
+                    </>
+                )}
 
             </div>
         </div>

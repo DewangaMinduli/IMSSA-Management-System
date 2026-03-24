@@ -125,6 +125,7 @@ exports.login = async (req, res) => {
             LEFT JOIN member_role mr ON u.user_id = mr.user_id AND mr.status = 'Active'
             LEFT JOIN role r ON mr.role_id = r.role_id
             WHERE u.student_number = ? OR u.email = ?
+            ORDER BY r.hierarchy_level DESC
         `, [identifier, identifier]);
         if (users.length === 0) return res.status(400).json({ message: "Invalid credentials" });
 

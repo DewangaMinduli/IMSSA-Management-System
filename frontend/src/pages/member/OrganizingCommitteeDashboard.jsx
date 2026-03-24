@@ -5,20 +5,26 @@ import {
     ChevronRight, Users, Calendar, X, ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import UserDropdown from '../../components/UserDropdown';
 
 const OrganizingCommitteeDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [showNotifications, setShowNotifications] = useState(false);
     const [events, setEvents] = useState([]);
+    const [allEvents, setAllEvents] = useState([]);
     const [loadingEvents, setLoadingEvents] = useState(true);
 
     // Fetch live events from DB
     useEffect(() => {
         const fetchEvents = async () => {
+            if (!user?.id) return;
             try {
-                const res = await fetch('http://localhost:5000/api/events');
-                if (res.ok) setEvents(await res.json());
+                const resMy = await fetch(`http://localhost:5000/api/events?user_id=${user.id}`);
+                const resAll = await fetch('http://localhost:5000/api/events');
+                
+                if (resMy.ok) setEvents(await resMy.json());
+                if (resAll.ok) setAllEvents(await resAll.json());
             } catch (err) {
                 console.error('Events fetch error', err);
             } finally {
@@ -26,7 +32,9 @@ const OrganizingCommitteeDashboard = () => {
             }
         };
         fetchEvents();
-    }, []);
+    }, [user?.id]);
+
+    const otherEvents = allEvents.filter(e => !events.find(me => me.event_id === e.event_id));
 
     // Placeholder until OC-specific task APIs exist
     const myTasks = [];
@@ -66,21 +74,38 @@ const OrganizingCommitteeDashboard = () => {
                             </div>
                         )}
                     </div>
-                    <Home size={20} className="text-gray-500 cursor-pointer hover:text-teal-600 transition-colors" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-gray-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700">Organizing Committee</div>
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm">
-                        {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'O'}
+                    {/* EVENT JUMP LINKS */}
+                    <div className="flex items-center gap-1.5 mr-2 border-r border-gray-200 pr-4">
+                        <div 
+                            onClick={() => document.getElementById('my-events')?.scrollIntoView({ behavior: 'smooth' })}
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors flex items-center gap-2"
+                        >
+                            <Calendar size={14} /> My Events
+                        </div>
                     </div>
+                    
+                    <Home size={20} className="text-gray-500 cursor-pointer hover:text-teal-600 transition-colors" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
+                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Organizing Committee</div>
+                    <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-6 mt-8">
 
                 {/* PAGE TITLE & ACTION */}
-                <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center gap-3">
-                        <ArrowRight className="transform rotate-180 text-gray-800 cursor-pointer" size={20} onClick={() => window.history.back()} />
-                        <h2 className="text-2xl font-bold text-gray-900">Organizing Committee Dashboard</h2>
+                <div className="flex justify-between items-center mb-10">
+                    <div className="flex items-center gap-4">
+                        <ArrowRight
+                            className="transform rotate-180 text-gray-400 hover:text-gray-700 cursor-pointer transition-colors flex-shrink-0"
+                            size={22}
+                            onClick={() => window.history.back()}
+                        />
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900">
+                                Hi, {user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'there'} 👋
+                            </p>
+                            <p className="text-sm text-gray-400 mt-0.5">Welcome back.</p>
+                        </div>
                     </div>
                     <button
                         onClick={() => navigate('/member/request-letter')}
@@ -113,7 +138,7 @@ const OrganizingCommitteeDashboard = () => {
                 </div>
 
                 {/* MY EVENTS (Live events from DB) */}
-                <h3 id="events" className="text-lg font-bold text-gray-900 mb-4">My Events</h3>
+                <h3 id="my-events" className="text-lg font-bold text-gray-900 mb-4 pt-4">My Events</h3>
                 {loadingEvents ? (
                     <p className="text-gray-400 text-sm mb-10">Loading events...</p>
                 ) : events.length === 0 ? (
@@ -125,8 +150,8 @@ const OrganizingCommitteeDashboard = () => {
                         {events.map(event => (
                             <div
                                 key={event.event_id}
-                                onClick={() => navigate(`/events/${event.event_id}`)}
-                                className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-all"
+                                onClick={() => navigate(`/member/event/${event.event_id}`)}
+                                className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-all flex flex-col justify-between"
                             >
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-3">
@@ -189,6 +214,37 @@ const OrganizingCommitteeDashboard = () => {
                                 <div className="flex justify-between items-center">
                                     <span className="px-2 py-1 rounded text-[10px] font-bold bg-gray-100 text-gray-600">Event: {task.event}</span>
                                     <button className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700">Approve</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* OTHER EVENTS */}
+                <h3 id="other-events" className="text-lg font-bold text-gray-900 mb-4 pt-4">Other Events</h3>
+                {otherEvents.length === 0 ? (
+                    <div className="bg-white rounded-xl p-8 border border-dashed border-gray-200 text-center text-gray-400 text-sm mb-10">
+                        No other ongoing events.
+                    </div>
+                ) : (
+                    <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x mb-10">
+                        {otherEvents.map(event => (
+                            <div
+                                key={event.event_id}
+                                onClick={() => navigate(`/events/${event.event_id}`)}
+                                className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start"
+                            >
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
+                                    </div>
+                                    <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
+                                </div>
+                                <div className="space-y-3 mb-4">
+                                    <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                </div>
+                                <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
+                                    <span>View Overview</span><ArrowRight size={14} />
                                 </div>
                             </div>
                         ))}

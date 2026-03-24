@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Bell, Home, FileText, Clock,
-    ChevronRight, Users, Calendar, X
+    ChevronRight, Users, Calendar, X, ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import VolunteerTaskModal from '../../components/VolunteerTaskModal';
+import UserDropdown from '../../components/UserDropdown';
 
 const MemberDashboard = () => {
     const navigate = useNavigate();
@@ -102,18 +103,28 @@ const MemberDashboard = () => {
                         className="text-gray-500 hover:text-teal-600 cursor-pointer transition-colors"
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     />
-                    <div className="bg-gray-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700">Member</div>
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm">
-                        {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'M'}
-                    </div>
+                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Member</div>
+                    <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-6 mt-8">
 
-                {/* PAGE HEADER */}
-                <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-gray-900">Member Dashboard</h2>
+                {/* BACK ARROW + GREETING + REQUEST LETTER */}
+                <div className="flex justify-between items-center mb-10">
+                    <div className="flex items-center gap-4">
+                        <ArrowRight
+                            className="transform rotate-180 text-gray-400 hover:text-gray-700 cursor-pointer transition-colors flex-shrink-0"
+                            size={22}
+                            onClick={() => window.history.back()}
+                        />
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900">
+                                Hi, {user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'there'} 👋
+                            </p>
+                            <p className="text-sm text-gray-400 mt-0.5">Welcome back.</p>
+                        </div>
+                    </div>
                     <button
                         onClick={() => navigate('/member/request-letter')}
                         className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all"

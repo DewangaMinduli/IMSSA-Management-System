@@ -1,57 +1,10 @@
 {
-  "event": [
-    "event_id",
-    "term_id",
-    "event_name",
-    "description",
-    "venue",
-    "created_by_user_id",
-    "start_date",
-    "end_date"
-  ],
+  "event": "Does not exist",
   "oc_member": "Does not exist",
-  "task": [
-    "task_id",
-    "event_id",
-    "title",
-    "description",
-    "deadline",
-    "created_by_user_id",
-    "is_volunteer_opportunity",
-    "proof_type",
-    "priority",
-    "status"
-  ],
+  "task": "Does not exist",
   "user_skill": "Does not exist",
   "skill": "Does not exist",
-  "task_skill": [
-    "id",
-    "task_id",
-    "skill_tag_id"
-  ],
-  "user": [
-    "user_id",
-    "student_number",
-    "email",
-    "phone_number",
-    "full_name",
-    "password_hash",
-    "academic_year",
-    "academic_level",
-    "user_type",
-    "account_status",
-    "verification_token",
-    "token_expires_at",
-    "created_at"
-  ],
-  "letter_request": [
-    "request_id",
-    "student_user_id",
-    "lecturer_user_id",
-    "purpose",
-    "recipient_name",
-    "company_name",
-    "status",
-    "requested_at"
-  ]
+  "task_skill": "Does not exist",
+  "user": "Does not exist",
+  "letter_request": "Does not exist"
 }

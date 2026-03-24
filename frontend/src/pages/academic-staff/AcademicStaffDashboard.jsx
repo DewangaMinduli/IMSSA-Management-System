@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, FileText, Calendar, Users, Clock, ArrowRight, Bell, Home, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import UserDropdown from '../../components/UserDropdown';
 
 const AcademicStaffDashboard = () => {
     const { user } = useAuth();
@@ -88,22 +89,28 @@ const AcademicStaffDashboard = () => {
                 <div className="flex items-center gap-4">
                     <Bell size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer" />
                     <Home size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-gray-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700">Academic Staff</div>
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">
-                        {user?.name?.charAt(0) || user?.full_name?.charAt(0) || 'U'}
-                    </div>
+                    <div className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700">Academic Staff</div>
+                    <UserDropdown user={user} colorClass="bg-slate-100 text-slate-700" />
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-6">
 
-                {/* ── BACK ARROW + VIEW FEEDBACK ── */}
-                <div className="flex items-center justify-between mb-8">
-                    <ArrowRight
-                        className="transform rotate-180 text-gray-600 hover:text-gray-900 cursor-pointer transition-colors"
-                        size={24}
-                        onClick={() => window.history.back()}
-                    />
+                {/* ── BACK ARROW + GREETING (inline) + VIEW FEEDBACK ── */}
+                <div className="flex items-center justify-between mb-10">
+                    <div className="flex items-center gap-4">
+                        <ArrowRight
+                            className="transform rotate-180 text-gray-400 hover:text-gray-700 cursor-pointer transition-colors flex-shrink-0"
+                            size={22}
+                            onClick={() => window.history.back()}
+                        />
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900">
+                                Hi, {user?.name?.split(' ')[0] || user?.full_name?.split(' ')[0] || 'there'} 👋
+                            </p>
+                            <p className="text-sm text-gray-400 mt-0.5">Welcome back.</p>
+                        </div>
+                    </div>
                     <button
                         onClick={() => window.location.href = '/academic-staff/feedback'}
                         className="bg-teal-50 hover:bg-teal-100 text-teal-700 font-semibold px-4 py-2 rounded-lg text-sm transition-colors border border-teal-200 shadow-sm"

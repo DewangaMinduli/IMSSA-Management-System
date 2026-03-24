@@ -59,7 +59,7 @@ const Sidebar = () => {
       name: 'Finance Overview',
       path: '/exec/junior-treasurer-dashboard#financial-overview',
       id: 'financial-overview',
-      show: user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer' || user.hierarchy_level === 5
+      show: (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer' || user.hierarchy_level === 5) && user.role_name !== 'President'
     },
 
     // ACADEMIC STAFF & SENIOR TREASURER
@@ -126,17 +126,47 @@ const Sidebar = () => {
     },
 
     // EXEC (Level 4+)
-    { name: 'Tasks to Approve', path: (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#approve-tasks' : '/exec/dashboard', id: 'approve-tasks', show: (user.hierarchy_level >= 4 || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') && user.role_name !== 'Senior_Treasurer' && user.role_name !== 'Senior Treasurer' && user.user_type !== 'Academic_Staff' && user.user_type !== 'Academic Staff' },
-    { name: 'My Tasks', path: (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#my-tasks' : '/exec/dashboard', id: 'my-tasks', show: (user.hierarchy_level >= 4 || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') && user.role_name !== 'Senior_Treasurer' && user.role_name !== 'Senior Treasurer' && user.user_type !== 'Academic_Staff' && user.user_type !== 'Academic Staff' },
-    { name: 'Volunteer Opportunities', path: (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#volunteer-opportunities' : '/exec/dashboard', id: 'volunteer-opportunities', show: (user.hierarchy_level >= 4 || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') && user.role_name !== 'Senior_Treasurer' && user.role_name !== 'Senior Treasurer' && user.user_type !== 'Academic_Staff' && user.user_type !== 'Academic Staff' },
-    { name: 'Events', path: (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#events' : '/exec/dashboard', id: 'events', show: (user.hierarchy_level >= 4 || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') && user.role_name !== 'Senior_Treasurer' && user.role_name !== 'Senior Treasurer' && user.user_type !== 'Academic_Staff' && user.user_type !== 'Academic Staff' },
-    { name: 'Term Management', path: '/exec/nominate-term', id: null, show: user.role_name === 'President' },
+    { 
+      name: 'Tasks to Approve', 
+      path: (user.role_name === 'President') ? '/exec/president-dashboard#approve-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#approve-tasks' : '/exec/dashboard#approve-tasks', 
+      id: 'approve-tasks', 
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer' 
+    },
+    { 
+      name: 'My Tasks', 
+      path: (user.role_name === 'President') ? '/exec/president-dashboard#my-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#my-tasks' : '/exec/dashboard#my-tasks', 
+      id: 'my-tasks', 
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer' 
+    },
+    { 
+      name: 'Volunteer Opportunities', 
+      path: (user.role_name === 'President') ? '/exec/president-dashboard#volunteer-opportunities' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#volunteer-opportunities' : '/exec/dashboard#volunteer-opportunities', 
+      id: 'volunteer-opportunities', 
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer' 
+    },
+    { 
+      name: 'Events', 
+      path: (user.role_name === 'President') ? '/exec/president-dashboard#events' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#events' : '/exec/dashboard#events', 
+      id: 'events', 
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer' 
+    },
+    { 
+      name: 'Term Management', 
+      path: '/exec/president-dashboard#term-management', 
+      id: 'term-management', 
+      show: user.role_name === 'President' 
+    },
 
 
   ];
 
+  // Role-based sidebar color
+  const isAcademicStaff = user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' ||
+    user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer';
+  const sidebarBg = isAcademicStaff ? 'bg-slate-100' : 'bg-teal-50/50';
+
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 text-gray-600 flex flex-col z-50 shadow-sm font-sans">
+    <aside className={`w-64 ${sidebarBg} border-r border-gray-200 h-screen fixed left-0 top-0 text-gray-600 flex flex-col z-50 shadow-sm font-sans`}>
 
       {/* Header */}
       <div className="p-6 flex items-center gap-3 border-b border-gray-100">
@@ -161,7 +191,7 @@ const Sidebar = () => {
 
       {/* Footer User Info */}
       <div className="p-4 border-t border-gray-100">
-        <div className="flex items-center gap-3 mb-4 px-2">
+        <div className="flex items-center gap-3 px-2">
           <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold border border-gray-200">
             {user.full_name?.charAt(0) || 'U'}
           </div>
@@ -174,9 +204,6 @@ const Sidebar = () => {
             </p>
           </div>
         </div>
-        <button onClick={logout} className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-500 py-2.5 rounded-lg hover:bg-red-100 transition-colors text-sm font-semibold">
-          Logout
-        </button>
       </div>
     </aside>
   );

@@ -18,8 +18,9 @@ router.get('/skills', userController.getSkillInventory);
 // GET http://localhost:5000/api/users/skills/members?tag_id=...
 router.get('/skills/members', userController.getSkillMembers);
 
-// GET http://localhost:5000/api/users/requests
+// GET / POST http://localhost:5000/api/users/requests
 router.get('/requests', userController.getRecommendationRequests);
+router.post('/requests', userController.submitLetterRequest);
 
 // GET http://localhost:5000/api/users/:id/analytics
 router.get('/:id/analytics', userController.getStudentAnalytics);

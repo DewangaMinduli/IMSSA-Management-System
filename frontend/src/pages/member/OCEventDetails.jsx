@@ -1,77 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Calendar, Edit, Clock, Users, Plus, X, Trash2, CheckCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import EditEventModal from '../../components/EditEventModal';
+import { useAuth } from '../../context/AuthContext';
 
 const OCEventDetails = () => {
+    const { eventId } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    
     const [activeTab, setActiveTab] = useState('Overview');
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    // --- SERVER STATE ---
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    const isExecutive = user?.hierarchy_level >= 4 || user?.user_type === 'Executive' || user?.role_name === 'Junior Treasurer' || user?.role_name === 'Junior_Treasurer';
+    const isPresident = user?.role_name === 'President';
+
     const [editingId, setEditingId] = useState(null);
 
-    // MOCK DATA STATES
-    const [tasks, setTasks] = useState([
-        { id: 1, task: "Finalize Speakers", assignedTo: "Dineth Perera", deadline: "July 25, 2025", responsible: "Kavindi Silva", status: "Completed" },
-        { id: 2, task: "Design Promotional Materials", assignedTo: "Rachelle Perera", deadline: "July 10, 2025", responsible: "Kavindi Silva", status: "Completed" },
-        { id: 3, task: "Registration Portal Setup", assignedTo: "Nipun Jayasekara", deadline: "July 25, 2025", responsible: "Kavindi Silva", status: "In Progress" },
-        { id: 4, task: "Social Media Campaign", assignedTo: "Ishara Fernando", deadline: "July 30, 2025", responsible: "Kavindi Silva", status: "In Progress" },
-        { id: 5, task: "Venue Booking for Finals", assignedTo: "Dineth Perera", deadline: "August 15, 2025", responsible: "Kavindi Silva", status: "Not Started" },
-    ]);
+    const [editingOcId, setEditingOcId] = useState(null);
+    const [editRoleStr, setEditRoleStr] = useState('');
+    const PREDEFINED_ROLES = [
+        "Main Coordinator", "Finance Coordinator", "Marketing Coordinator",
+        "PR Coordinator", "Secretary", "Partnership Coordinator",
+        "Editor-in-Chief", "Organizing Committee Member"
+    ];
 
-    const [ocMembers, setOcMembers] = useState([
-        { id: 1, name: "Sajith Liyanagamage", studentId: "IM/2021/045", role: "Main Coordinator" },
-        { id: 2, name: "Rochelle Jayasuriya", studentId: "IM/2021/023", role: "Marketing Coordinator" },
-        { id: 3, name: "Malith Jayasuriya", studentId: "IM/2021/078", role: "Finance Coordinator" },
-        { id: 4, name: "Ishara Fernando", studentId: "IM/2021/102", role: "Media Coordinator" },
-        { id: 5, name: "Malith Jayasinghe", studentId: "IM/2021/001", role: "Volunteer" },
-    ]);
-
-
-
-    const eventData = {
-        name: "hackX 10.0",
-        date: "July 19 - November 11, 2025",
-        description: "A Global Impact driven 24-hour startup challenge organized by the Industrial Management Science Students' Association aimed at creating visible social impact.",
-        goals: [
-            "Engage 300+ talented university students / IT Leans",
-            "Pitch 50+ startup solutions",
-            "Provide mentorship opportunities with tech professionals",
-            "Idea box for IT solutions for Social problems"
-        ]
+    const fetchEventDetails = async () => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/details`);
+            if (res.ok) setData(await res.json());
+        } catch (err) {}
+        finally { setLoading(false); }
     };
 
-    const timeline = [
-        { id: 1, title: "Ideasprint", date: "July 19, 2025", color: "bg-teal-500" },
-        { id: 2, title: "Registrations Open", date: "August 6, 2025", color: "bg-teal-500" },
-        { id: 3, title: "Proposal Submission", date: "August 27, 2025", color: "bg-teal-500" },
-        { id: 4, title: "IdeaX Semi Finals", date: "October 11, 2025", color: "bg-teal-500" },
-        { id: 5, title: "designX Workshop 1", date: "October 18, 2025", color: "bg-teal-500" },
-        { id: 6, title: "designX Workshop 2", date: "October 23, 2025", color: "bg-teal-500" },
-        { id: 7, title: "designX Workshop 3", date: "October 30, 2025", color: "bg-teal-500" },
-        { id: 8, title: "Grand Finals", date: "November 11, 2025", color: "bg-teal-500" },
-    ];
+    useEffect(() => {
+        fetchEventDetails();
+    }, [eventId]);
+
+    const handleSaveRole = async (memberId) => {
+        setEditingOcId(null);
+        // Backend Hook to be appended
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm("Are you sure you want to delete this event? This cannot be undone.")) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                alert("Event deleted successfully!");
+                navigate(-1);
+            }
+        } catch (err) {}
+    };
+
+    const handleEditSuccess = () => fetchEventDetails();
+
+    if (loading) return <div className="p-8 max-w-7xl mx-auto flex justify-center items-center h-48"><p className="text-gray-500 font-medium animate-pulse">Loading Event Details...</p></div>;
+    if (!data || !data.event) return <div className="p-8 text-center mt-10"><h2 className="text-xl font-bold">Event Not Found</h2></div>;
+
+    const { event, tasks, committee: ocMembers, timeline } = data;
 
     // TAB COMPONENTS
     const Overview = () => (
         <div>
             <h3 className="text-lg font-bold text-gray-800 mb-4">Event Description</h3>
-            <p className="text-gray-600 text-sm mb-8 leading-relaxed">{eventData.description}</p>
-
-            <div className="flex justify-between items-start">
-                <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4">Event Goals</h3>
-                    <ul className="space-y-4">
-                        {eventData.goals.map((goal, idx) => (
-                            <li key={idx} className="flex items-center gap-3">
-                                <span className="w-6 h-6 rounded flex items-center justify-center bg-blue-100 text-blue-600 font-bold text-xs">{idx + 1}</span>
-                                <span className="text-gray-600 text-sm">{goal}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-                <div className="w-[400px] h-[250px] bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-400">
-                    <img src="/placeholder-event.jpg" alt="Event" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
-                    <span className="text-sm">Event Image Placeholder</span>
-                </div>
-            </div>
+            <p className="text-gray-600 text-sm mb-8 leading-relaxed">{event.description || 'No specific description provided.'}</p>
         </div>
     );
 
@@ -98,10 +99,10 @@ const OCEventDetails = () => {
                     <tbody className="divide-y divide-gray-50">
                         {tasks.map(task => (
                             <tr key={task.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 font-medium text-gray-900">{task.task}</td>
-                                <td className="px-6 py-4 text-gray-500">{task.assignedTo}</td>
-                                <td className="px-6 py-4 text-gray-500">{task.deadline}</td>
-                                <td className="px-6 py-4 text-gray-500">{task.responsible}</td>
+                                <td className="px-6 py-4 font-medium text-gray-900">{task.title}</td>
+                                <td className="px-6 py-4 text-gray-500">{task.assignedTo || 'Unassigned'}</td>
+                                <td className="px-6 py-4 text-gray-500">{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'None'}</td>
+                                <td className="px-6 py-4 text-gray-500">Supervising OC</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${task.status === 'Completed' ? 'bg-green-100 text-green-600' :
                                         task.status === 'In Progress' ? 'bg-blue-100 text-blue-600' :
@@ -116,9 +117,6 @@ const OCEventDetails = () => {
                                             <CheckCircle size={12} /> Approve
                                         </button>
                                     )}
-                                    <button className="text-blue-600 font-medium text-xs hover:underline flex items-center gap-1">
-                                        <Edit size={12} /> Edit
-                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -148,13 +146,33 @@ const OCEventDetails = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {ocMembers.map(member => (
-                            <tr key={member.id} className="hover:bg-gray-50">
+                            <tr key={member.eo_id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 font-bold text-gray-900">{member.name}</td>
-                                <td className="px-6 py-4 text-gray-500">{member.studentId}</td>
-                                <td className="px-6 py-4 text-gray-500">{member.role}</td>
-                                <td className="px-6 py-4 flex gap-3">
-                                    <button className="text-blue-600 font-medium text-xs hover:underline flex items-center gap-1"><Edit size={12} /> Edit</button>
-                                    <button className="text-red-600 font-medium text-xs hover:underline flex items-center gap-1"><Trash2 size={12} /> Remove</button>
+                                <td className="px-6 py-4 text-gray-500">{member.id}</td>
+                                <td className="px-6 py-4 text-gray-500">
+                                    {editingOcId === member.eo_id ? (
+                                        <select 
+                                            className="w-full border border-gray-300 p-1.5 rounded-md text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                            value={editRoleStr}
+                                            onChange={(e) => setEditRoleStr(e.target.value)}
+                                        >
+                                            {PREDEFINED_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                                        </select>
+                                    ) : (
+                                        member.role
+                                    )}
+                                </td>
+                                <td className="px-6 py-4 flex gap-3 h-full items-center">
+                                    {editingOcId === member.eo_id ? (
+                                        <>
+                                            <button onClick={() => handleSaveRole(member.eo_id)} className="text-green-600 font-medium text-xs hover:underline flex items-center gap-1"><CheckCircle size={12} /> Save</button>
+                                            <button onClick={() => setEditingOcId(null)} className="text-gray-500 font-medium text-xs hover:underline flex items-center gap-1"><X size={12} /> Cancel</button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button onClick={() => { setEditingOcId(member.eo_id); setEditRoleStr(member.role); }} className="text-blue-600 font-medium text-xs hover:underline flex items-center gap-1"><Edit size={12} /> Edit Role</button>
+                                        </>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -289,19 +307,16 @@ const OCEventDetails = () => {
             <div className="relative border-l-2 border-gray-100 ml-4 space-y-8">
                 {timeline.map((item, index) => (
                     <div key={item.id} className="ml-8 relative">
-                        <span className={`absolute -left-[41px] top-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${item.color}`}>
+                        <span className="absolute -left-[41px] top-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-teal-500">
                             {index + 1}
                         </span>
                         <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors">
                             <div>
                                 <h4 className="font-bold text-gray-900 text-sm">{item.title}</h4>
                                 <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                    <Clock size={12} /> {item.date}
+                                    <Clock size={12} /> {new Date(item.date).toLocaleDateString()}
                                 </div>
                             </div>
-                            <button className="bg-gray-200 hover:bg-gray-300 text-gray-600 px-3 py-1 rounded text-xs font-medium flex items-center gap-1">
-                                <Edit size={12} /> Edit
-                            </button>
                         </div>
                     </div>
                 ))}
@@ -327,15 +342,37 @@ const OCEventDetails = () => {
 
             <div className="max-w-7xl mx-auto px-6 mt-8">
                 {/* Back Button & Title */}
-                <div className="flex items-center gap-4 mb-6">
-                    <ArrowLeft className="cursor-pointer text-gray-600 hover:text-gray-900" size={20} onClick={() => navigate(-1)} />
-                    <div>
-                        <div className="flex items-center gap-3 mb-1">
-                            <h2 className="text-2xl font-bold text-gray-900">hackX 10.0</h2>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div className="flex items-center gap-4">
+                        <ArrowLeft className="cursor-pointer text-gray-600 hover:text-gray-900" size={20} onClick={() => navigate(-1)} />
+                        <div>
+                            <div className="flex items-center gap-3 mb-1">
+                                <h2 className="text-2xl font-bold text-gray-900">{event.event_name}</h2>
+                                <span className={`px-3 py-1 rounded text-xs font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <Calendar size={14} /> {new Date(event.start_date).toLocaleDateString()} - {event.end_date ? new Date(event.end_date).toLocaleDateString() : 'TBD'}
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Calendar size={14} /> July 19 - November 11, 2025
-                        </div>
+                    </div>
+                    {/* Header Controls */}
+                    <div className="flex gap-3 mt-4 sm:mt-0 ml-10 sm:ml-0">
+                        {isExecutive && (
+                            <button 
+                                onClick={() => setIsEditModalOpen(true)}
+                                className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                            >
+                                <Edit2 size={16} /> Edit Event
+                            </button>
+                        )}
+                        {isPresident && (
+                            <button 
+                                onClick={handleDelete}
+                                className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                            >
+                                <Trash2 size={16} /> Delete Event
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -403,7 +440,12 @@ const OCEventDetails = () => {
                 </div>
             )}
 
-
+            <EditEventModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                event={event}
+                onSuccess={handleEditSuccess}
+            />
 
         </div>
     );
