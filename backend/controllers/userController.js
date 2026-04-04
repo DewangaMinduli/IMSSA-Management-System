@@ -60,25 +60,52 @@ exports.getAcademicStaff = async (req, res) => {
 // --- STUDENT SEARCH ---
 exports.searchStudents = async (req, res) => {
     try {
-        const { q } = req.query;
+        const { q, include_archived } = req.query;
         if (!q) return res.json([]);
         
         const searchTerm = `%${q}%`;
-        const [rows] = await db.execute(
-            `SELECT u.user_id, u.student_number as student_no, u.full_name,
+        
+        let sql = `SELECT u.user_id, u.student_number, u.full_name,
                     COALESCE(
                         (SELECT r.role_name FROM member_role mr JOIN role r ON mr.role_id = r.role_id WHERE mr.user_id = u.user_id LIMIT 1),
                         u.user_type
-                    ) as role_name
+                    ) as role_name, u.account_status
              FROM user u
-             WHERE u.user_type = 'Student' AND (u.student_number LIKE ? OR u.full_name LIKE ?)
-             LIMIT 10`,
-            [searchTerm, searchTerm]
-        );
+             WHERE u.user_type = 'Student' AND (u.student_number LIKE ? OR u.full_name LIKE ?)`;
+             
+        if (include_archived !== 'true') {
+            sql += ` AND u.account_status = 'Active'`;
+        }
+        
+        sql += ` LIMIT 10`;
+
+        const [rows] = await db.execute(sql, [searchTerm, searchTerm]);
         res.json(rows);
     } catch (error) {
         console.error("Error searching students:", error);
         res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+// --- TERM ROLLOVER ARCHIVING PROTOCOL ---
+exports.rolloverTerm = async (req, res) => {
+    try {
+        // 1. Archive graduating Level 4 students (and outgoing Level 5 Execs)
+        await db.execute(
+            `UPDATE user SET account_status = 'Archived', role_name = 'Member', role_id = NULL 
+             WHERE hierarchy_level >= 4 AND account_status = 'Active'`
+        );
+        
+        // 2. Auto-increment remaining active underclassmen (Level 1->2, 2->3, 3->4)
+        await db.execute(
+            `UPDATE user SET hierarchy_level = hierarchy_level + 1 
+             WHERE hierarchy_level < 4 AND account_status = 'Active'`
+        );
+
+        res.json({ message: "Term Rollover Successful. Students upgraded and graduating class archived." });
+    } catch (error) {
+        console.error("Error executing term rollover:", error);
+        res.status(500).json({ message: "Internal Server Error during Rollover" });
     }
 };
 
@@ -105,7 +132,7 @@ exports.getSkillMembers = async (req, res) => {
         const { tag_id } = req.query;
         if (!tag_id) return res.json([]);
         const [rows] = await db.execute(`
-            SELECT u.user_id, u.full_name, u.student_number as student_no, msl.points,
+            SELECT u.user_id, u.full_name, u.student_number, msl.points,
                    COALESCE(
                        (SELECT r.role_name FROM member_role mr JOIN role r ON mr.role_id = r.role_id WHERE mr.user_id = u.user_id LIMIT 1),
                        u.user_type
@@ -128,7 +155,7 @@ exports.getRecommendationRequests = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT lr.request_id, lr.student_user_id as student_id, lr.lecturer_user_id as academic_staff_id,
                    lr.requested_at as request_date, lr.status, lr.purpose, lr.recipient_name, lr.company_name,
-                   u.full_name, u.student_number as student_no
+                   u.full_name, u.student_number
             FROM letter_request lr
             JOIN user u ON lr.student_user_id = u.user_id
             ORDER BY lr.requested_at DESC

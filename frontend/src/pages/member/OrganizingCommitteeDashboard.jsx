@@ -18,13 +18,20 @@ const OrganizingCommitteeDashboard = () => {
     // Fetch live events from DB
     useEffect(() => {
         const fetchEvents = async () => {
-            if (!user?.id) return;
+            const uid = user?.id || user?.user_id;
+            if (!uid) return;
             try {
-                const resMy = await fetch(`http://localhost:5000/api/events?user_id=${user.id}`);
+                const resMy = await fetch(`http://localhost:5000/api/events?user_id=${uid}`);
                 const resAll = await fetch('http://localhost:5000/api/events');
-                
-                if (resMy.ok) setEvents(await resMy.json());
-                if (resAll.ok) setAllEvents(await resAll.json());
+
+                if (resMy.ok) {
+                    const data = await resMy.json();
+                    setEvents(Array.isArray(data) ? data : []);
+                }
+                if (resAll.ok) {
+                    const data = await resAll.json();
+                    setAllEvents(Array.isArray(data) ? data : []);
+                }
             } catch (err) {
                 console.error('Events fetch error', err);
             } finally {
@@ -32,7 +39,7 @@ const OrganizingCommitteeDashboard = () => {
             }
         };
         fetchEvents();
-    }, [user?.id]);
+    }, [user?.id, user?.user_id]);
 
     const otherEvents = allEvents.filter(e => !events.find(me => me.event_id === e.event_id));
 
@@ -74,16 +81,6 @@ const OrganizingCommitteeDashboard = () => {
                             </div>
                         )}
                     </div>
-                    {/* EVENT JUMP LINKS */}
-                    <div className="flex items-center gap-1.5 mr-2 border-r border-gray-200 pr-4">
-                        <div 
-                            onClick={() => document.getElementById('my-events')?.scrollIntoView({ behavior: 'smooth' })}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors flex items-center gap-2"
-                        >
-                            <Calendar size={14} /> My Events
-                        </div>
-                    </div>
-                    
                     <Home size={20} className="text-gray-500 cursor-pointer hover:text-teal-600 transition-colors" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
                     <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Organizing Committee</div>
                     <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
@@ -200,7 +197,7 @@ const OrganizingCommitteeDashboard = () => {
                 )}
 
                 {/* TASKS TO APPROVE */}
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Tasks to Approve</h3>
+                <h3 id="tasks-to-approve" className="text-lg font-bold text-gray-900 mb-4">Tasks to Approve</h3>
                 {tasksToApprove.length === 0 ? (
                     <div className="bg-white rounded-xl p-8 border border-dashed border-gray-200 text-center text-gray-400 text-sm mb-10">
                         No tasks pending approval.
@@ -221,7 +218,7 @@ const OrganizingCommitteeDashboard = () => {
                 )}
 
                 {/* OTHER EVENTS */}
-                <h3 id="other-events" className="text-lg font-bold text-gray-900 mb-4 pt-4">Other Events</h3>
+                <h3 id="events" className="text-lg font-bold text-gray-900 mb-4 pt-4">Events</h3>
                 {otherEvents.length === 0 ? (
                     <div className="bg-white rounded-xl p-8 border border-dashed border-gray-200 text-center text-gray-400 text-sm mb-10">
                         No other ongoing events.

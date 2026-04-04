@@ -39,10 +39,10 @@ const Sidebar = () => {
       name: 'Home',
       path: (user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer') ? '/academic-staff/senior-treasurer-dashboard' :
         (user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff') ? '/academic-staff/dashboard' :
-        (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer') ? '/exec/junior-treasurer-dashboard' :
-        (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard' :
-        (user.role_name === 'President') ? '/exec/president-dashboard' :
-        (user.hierarchy_level >= 4 ? '/exec/dashboard' : '/member/dashboard'),
+          (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer') ? '/exec/junior-treasurer-dashboard' :
+            (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard' :
+              (user.role_name === 'President') ? '/exec/president-dashboard' :
+                (user.hierarchy_level >= 4 ? '/exec/dashboard' : '/member/dashboard'),
       id: null,
       show: true
     },
@@ -50,9 +50,15 @@ const Sidebar = () => {
     // OC MEMBERS SPECIFIC
     {
       name: 'My Events',
-      path: '/member/event/hackx-10',
-      id: null,
-      show: user.role_name === 'Organizing_Committee'
+      path: '/member/oc-dashboard#my-events',
+      id: 'my-events',
+      show: user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee'
+    },
+    {
+      name: 'Tasks to Approve',
+      path: '/member/oc-dashboard#tasks-to-approve',
+      id: 'tasks-to-approve',
+      show: user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee'
     },
 
     {
@@ -108,53 +114,53 @@ const Sidebar = () => {
     // MEMBER (Students)
     {
       name: 'My Tasks',
-      path: (user.role_name === 'Organizing_Committee') ? '/member/oc-dashboard#tasks' : '/member/dashboard',
+      path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#tasks' : '/member/dashboard',
       id: 'tasks',
       show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer'
     },
     {
       name: 'Volunteer Opportunities',
-      path: (user.role_name === 'Organizing_Committee') ? '/member/oc-dashboard#other-events' : '/member/dashboard',
+      path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#events' : '/member/dashboard',
       id: 'volunteer',
-      show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer'
+      show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer' && user.role_name !== 'Organizing_Committee' && user.role_name !== 'Organizing Committee'
     },
     {
       name: 'Events',
-      path: (user.role_name === 'Organizing_Committee') ? '/member/oc-dashboard#events' : '/member/dashboard',
+      path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#events' : '/member/dashboard',
       id: 'events',
       show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer'
     },
 
     // EXEC (Level 4+)
-    { 
-      name: 'Tasks to Approve', 
-      path: (user.role_name === 'President') ? '/exec/president-dashboard#approve-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#approve-tasks' : '/exec/dashboard#approve-tasks', 
-      id: 'approve-tasks', 
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer' 
+    {
+      name: 'Tasks to Approve',
+      path: (user.role_name === 'President') ? '/exec/president-dashboard#approve-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#approve-tasks' : '/exec/dashboard#approve-tasks',
+      id: 'approve-tasks',
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer'
     },
-    { 
-      name: 'My Tasks', 
-      path: (user.role_name === 'President') ? '/exec/president-dashboard#my-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#my-tasks' : '/exec/dashboard#my-tasks', 
-      id: 'my-tasks', 
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer' 
+    {
+      name: 'My Tasks',
+      path: (user.role_name === 'President') ? '/exec/president-dashboard#my-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#my-tasks' : '/exec/dashboard#my-tasks',
+      id: 'my-tasks',
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer'
     },
-    { 
-      name: 'Volunteer Opportunities', 
-      path: (user.role_name === 'President') ? '/exec/president-dashboard#volunteer-opportunities' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#volunteer-opportunities' : '/exec/dashboard#volunteer-opportunities', 
-      id: 'volunteer-opportunities', 
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer' 
+    {
+      name: 'Volunteer Opportunities',
+      path: (user.role_name === 'President') ? '/exec/president-dashboard#volunteer-opportunities' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#volunteer-opportunities' : '/exec/dashboard#volunteer-opportunities',
+      id: 'volunteer-opportunities',
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer'
     },
-    { 
-      name: 'Events', 
-      path: (user.role_name === 'President') ? '/exec/president-dashboard#events' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#events' : '/exec/dashboard#events', 
-      id: 'events', 
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer' 
+    {
+      name: 'Events',
+      path: (user.role_name === 'President') ? '/exec/president-dashboard#events' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#events' : '/exec/dashboard#events',
+      id: 'events',
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer'
     },
-    { 
-      name: 'Term Management', 
-      path: '/exec/president-dashboard#term-management', 
-      id: 'term-management', 
-      show: user.role_name === 'President' 
+    {
+      name: 'Term Management',
+      path: '/exec/president-dashboard#term-management',
+      id: 'term-management',
+      show: user.role_name === 'President'
     },
 
 
@@ -199,8 +205,8 @@ const Sidebar = () => {
             <p className="text-sm font-bold truncate text-gray-800">{user.full_name}</p>
             <p className="text-[10px] text-teal-600 truncate font-medium uppercase tracking-wider">
               {(user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer') ? "Senior Treasurer" :
-               (user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' || user.role_name === 'Academic_Staff' || user.role_name === 'Academic Staff') ? "Academic Staff" :
-               (user.hierarchy_level >= 4) ? "Executive Board" : (user.role_name || user.user_type)}
+                (user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' || user.role_name === 'Academic_Staff' || user.role_name === 'Academic Staff') ? "Academic Staff" :
+                  (user.hierarchy_level >= 4) ? "Executive Board" : (user.role_name || user.user_type)}
             </p>
           </div>
         </div>

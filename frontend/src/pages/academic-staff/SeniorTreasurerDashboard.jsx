@@ -97,8 +97,8 @@ const SeniorTreasurerDashboard = () => {
         try {
             const res = await fetch(`http://localhost:5000/api/users/search?q=${searchQuery}`);
             if (res.ok) {
-                 setStudents(await res.json());
-                 setSelectedAnalytics(null);
+                setStudents(await res.json());
+                setSelectedAnalytics(null);
             }
         } catch (err) {
             console.error("Search error", err);
@@ -159,7 +159,7 @@ const SeniorTreasurerDashboard = () => {
                             <p className="text-sm text-gray-400 mt-0.5">Welcome back.</p>
                         </div>
                     </div>
-                    <button onClick={() => window.location.href='/academic-staff/feedback'} className="bg-teal-50 hover:bg-teal-100 text-teal-700 font-semibold px-4 py-2 rounded-lg text-sm transition-colors border border-teal-200 shadow-sm">
+                    <button onClick={() => window.location.href = '/academic-staff/feedback'} className="bg-teal-50 hover:bg-teal-100 text-teal-700 font-semibold px-4 py-2 rounded-lg text-sm transition-colors border border-teal-200 shadow-sm">
                         View Feedback
                     </button>
                 </div>
@@ -187,13 +187,13 @@ const SeniorTreasurerDashboard = () => {
                         {[...financeData.accounts]
                             .sort((a, b) => Number(b.current_balance) - Number(a.current_balance))
                             .map(acc => (
-                            <div key={acc.account_id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                                <h3 className="text-xs font-semibold text-gray-500 mb-1">{acc.account_name}</h3>
-                                <p className="text-xl font-bold text-blue-600 truncate">
-                                    Rs. {Number(acc.current_balance).toLocaleString()}
-                                </p>
-                            </div>
-                        ))}
+                                <div key={acc.account_id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                    <h3 className="text-xs font-semibold text-gray-500 mb-1">{acc.account_name}</h3>
+                                    <p className="text-xl font-bold text-blue-600 truncate">
+                                        Rs. {Number(acc.current_balance).toLocaleString()}
+                                    </p>
+                                </div>
+                            ))}
                     </div>
 
                     {/* 2. PENDING FINANCE APPROVALS (Budget Report) */}
@@ -297,9 +297,9 @@ const SeniorTreasurerDashboard = () => {
                     <h2 className="text-lg font-bold text-gray-800 mb-4">Search for Students</h2>
                     <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3 mb-4">
                         <div className="flex-1 px-4">
-                            <input 
-                                type="text" 
-                                placeholder="Search by Student No. or Name" 
+                            <input
+                                type="text"
+                                placeholder="Search by Student No. or Name"
                                 className="w-full h-10 outline-none text-gray-600 text-sm placeholder-gray-300"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -308,7 +308,7 @@ const SeniorTreasurerDashboard = () => {
                         </div>
                         <button onClick={handleSearch} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-lg font-semibold text-sm transition-colors">Search</button>
                     </div>
-                    
+
                     {/* Search Results */}
                     {students.length > 0 && (
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
@@ -342,8 +342,8 @@ const SeniorTreasurerDashboard = () => {
                                     <div>
                                         <h3 className="text-2xl font-bold">{selectedAnalytics.full_name}</h3>
                                         <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 text-teal-50 text-sm font-medium">
-                                            <span className="flex items-center gap-1"><Users size={14}/> {selectedAnalytics.student_number}</span>
-                                            <span className="flex items-center gap-1"><Calendar size={14}/> Level {selectedAnalytics.academic_level || 'N/A'} - {selectedAnalytics.academic_year || 'Year 1'}</span>
+                                            <span className="flex items-center gap-1"><Users size={14} /> {selectedAnalytics.student_number}</span>
+                                            <span className="flex items-center gap-1"><Calendar size={14} /> Level {selectedAnalytics.academic_level || 'N/A'} - {selectedAnalytics.academic_year || 'Year 1'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -353,7 +353,7 @@ const SeniorTreasurerDashboard = () => {
                             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 {/* Event Tracker */}
                                 <div>
-                                    <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2"><Calendar size={16} className="text-orange-500"/> Event Participation</h4>
+                                    <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2"><Calendar size={16} className="text-orange-500" /> Event Participation</h4>
                                     <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
                                         {selectedAnalytics.eventRoles.length === 0 && selectedAnalytics.completedTasks.length === 0 ? (
                                             <p className="text-sm text-gray-500 italic">No formal event history recorded.</p>
@@ -361,7 +361,7 @@ const SeniorTreasurerDashboard = () => {
                                             <>
                                                 {selectedAnalytics.eventRoles.map((role, idx) => (
                                                     <div key={`r-${idx}`} className="bg-orange-50 p-3 rounded-lg border border-orange-100 flex items-start gap-3">
-                                                        <div className="bg-orange-500 text-white rounded p-1"><Users size={14}/></div>
+                                                        <div className="bg-orange-500 text-white rounded p-1"><Users size={14} /></div>
                                                         <div>
                                                             <p className="font-bold text-gray-900 text-sm">{role.event_name}</p>
                                                             <p className="text-xs text-orange-700 font-semibold">{role.role}</p>
@@ -370,7 +370,7 @@ const SeniorTreasurerDashboard = () => {
                                                 ))}
                                                 {selectedAnalytics.completedTasks.map((task, idx) => (
                                                     <div key={`t-${idx}`} className="bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-start gap-3">
-                                                        <div className="bg-blue-500 text-white rounded p-1"><FileText size={14}/></div>
+                                                        <div className="bg-blue-500 text-white rounded p-1"><FileText size={14} /></div>
                                                         <div>
                                                             <p className="font-bold text-gray-900 text-sm">{task.event_name}</p>
                                                             <p className="text-xs text-blue-700 font-semibold">Task Completed: {task.task_name}</p>
@@ -384,7 +384,7 @@ const SeniorTreasurerDashboard = () => {
 
                                 {/* Skills Matrix */}
                                 <div>
-                                    <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2"><Clock size={16} className="text-teal-500"/> Acquired Skills Graph</h4>
+                                    <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 flex items-center gap-2"><Clock size={16} className="text-teal-500" /> Acquired Skills Graph</h4>
                                     <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 min-h-[12rem]">
                                         {selectedAnalytics.skills.length === 0 ? (
                                             <p className="text-sm text-gray-500 italic flex h-full items-center justify-center">No skills acquired yet.</p>
@@ -419,7 +419,7 @@ const SeniorTreasurerDashboard = () => {
                                 onChange={(e) => { setSkillSearch(e.target.value); setSelectedSkill(null); setSkillMembers([]); }}
                             />
                         </div>
-                        {skillSearch && <button onClick={() => { setSkillSearch(''); setSelectedSkill(null); setSkillMembers([]); }} className="text-gray-400 hover:text-gray-600 px-3"><X size={16}/></button>}
+                        {skillSearch && <button onClick={() => { setSkillSearch(''); setSelectedSkill(null); setSkillMembers([]); }} className="text-gray-400 hover:text-gray-600 px-3"><X size={16} /></button>}
                     </div>
 
                     {/* Skill List — only shown when user starts typing */}
@@ -437,11 +437,10 @@ const SeniorTreasurerDashboard = () => {
                                 <div
                                     key={skill.skill_id}
                                     onClick={() => handleSkillClick(skill)}
-                                    className={`flex justify-between items-center px-6 py-3 border-b border-gray-50 last:border-0 cursor-pointer transition-colors ${
-                                        selectedSkill?.skill_id === skill.skill_id ? 'bg-teal-50 border-l-4 border-l-teal-500' : 'hover:bg-gray-50'
-                                    }`}
+                                    className={`flex justify-between items-center px-6 py-3 border-b border-gray-50 last:border-0 cursor-pointer transition-colors ${selectedSkill?.skill_id === skill.skill_id ? 'bg-teal-50 border-l-4 border-l-teal-500' : 'hover:bg-gray-50'
+                                        }`}
                                 >
-                                    <span className="font-medium text-gray-700 flex items-center gap-3"><FileText size={16} className="text-teal-500"/> {skill.name}</span>
+                                    <span className="font-medium text-gray-700 flex items-center gap-3"><FileText size={16} className="text-teal-500" /> {skill.name}</span>
                                     <span className="bg-teal-50 text-teal-700 text-xs font-bold px-3 py-1 rounded-full border border-teal-100">{skill.count} Members</span>
                                 </div>
                             ))}
@@ -453,7 +452,7 @@ const SeniorTreasurerDashboard = () => {
                         <div className="bg-white rounded-xl shadow-sm border border-teal-100 overflow-hidden">
                             <div className="px-6 py-4 bg-teal-50 border-b border-teal-100 flex justify-between items-center">
                                 <h3 className="font-bold text-teal-800 text-sm">Members skilled in: <span className="text-teal-600">{selectedSkill.name}</span></h3>
-                                <button onClick={() => { setSelectedSkill(null); setSkillMembers([]); }} className="text-teal-400 hover:text-teal-700"><X size={16}/></button>
+                                <button onClick={() => { setSelectedSkill(null); setSkillMembers([]); }} className="text-teal-400 hover:text-teal-700"><X size={16} /></button>
                             </div>
                             {skillMembersLoading ? (
                                 <p className="text-center text-gray-400 text-sm py-8">Loading members...</p>
@@ -490,7 +489,7 @@ const SeniorTreasurerDashboard = () => {
                         ) : recRequests.map(req => (
                             <div key={req.request_id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
                                 <div className="flex items-center gap-4">
-                                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
                                         {req.full_name?.charAt(0) || 'S'}
                                     </div>
                                     <div>
@@ -520,7 +519,7 @@ const SeniorTreasurerDashboard = () => {
                                 <div className="flex justify-between items-start mb-6">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                            {event.event_name ? event.event_name.substring(0,2).toUpperCase() : 'EV'}
+                                            {event.event_name ? event.event_name.substring(0, 2).toUpperCase() : 'EV'}
                                         </div>
                                         <h3 className="font-bold text-gray-800 text-sm">{event.event_name}</h3>
                                     </div>

@@ -36,10 +36,28 @@ const NominateTerm = () => {
         }, 1500);
     };
 
-    const handleEndTerm = () => {
-        if (window.confirm("Are you sure you want to END the current term? This action cannot be undone.")) {
-            alert("Term Ended. Logging out.");
-            navigate('/login');
+    const handleEndTerm = async () => {
+        if (window.confirm("Are you sure you want to END the current term? This action will archive all graduating Level 4 students and upgrade all underclassmen automatically. This cannot be undone.")) {
+            setLoading(true);
+            try {
+                const res = await fetch('http://localhost:5000/api/users/rollover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (res.ok) {
+                    alert("Term Ended successfully! Graduating class has been archived.");
+                    navigate('/login');
+                } else {
+                    const data = await res.json();
+                    alert("Failed to end term: " + data.message);
+                }
+            } catch (err) {
+                console.error("Error executing term rollover", err);
+                alert("Server Error occurred during Term Rollover.");
+            } finally {
+                setLoading(false);
+            }
         }
     };
 

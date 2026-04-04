@@ -25,4 +25,7 @@ router.post('/requests', userController.submitLetterRequest);
 // GET http://localhost:5000/api/users/:id/analytics
 router.get('/:id/analytics', userController.getStudentAnalytics);
 
+// POST http://localhost:5000/api/users/rollover
+router.post('/rollover', userController.rolloverTerm);
+
 module.exports = router;

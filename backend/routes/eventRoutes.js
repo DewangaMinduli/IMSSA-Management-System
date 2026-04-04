@@ -2,11 +2,49 @@ const express = require('express');
 const router = express.Router();
 const eventController = require('../controllers/eventController');
 
+// Student lookup (for task assignment)
+router.get('/lookup-student', async (req, res) => {
+    const db = require('../config/db');
+    const { student_number } = req.query;
+    if (!student_number) return res.status(400).json({ message: 'student_number required' });
+    try {
+        const [rows] = await db.execute(
+            'SELECT user_id, full_name, student_number FROM user WHERE student_number = ? LIMIT 1',
+            [student_number]
+        );
+        if (rows.length === 0) return res.status(404).json({ message: 'Student not found' });
+        res.json(rows[0]);
+    } catch(e) { res.status(500).json({ message: 'Server Error' }); }
+});
+
+// Event CRUD
 router.get('/', eventController.getAllEvents);
 router.post('/', eventController.createEvent);
 router.get('/:id/details', eventController.getEventDetails);
+router.post('/:id/oc', eventController.addOCMember);
 router.put('/:id/oc-designation', eventController.updateOCDesignation);
 router.put('/:id', eventController.updateEvent);
 router.delete('/:id', eventController.deleteEvent);
+
+// OC Member update
+router.patch('/oc/:eoId', eventController.updateOCMember);
+
+// Task routes
+router.post('/:id/tasks', eventController.addTask);
+router.patch('/tasks/:taskId', eventController.updateTask);
+router.delete('/tasks/:taskId', eventController.deleteTask);
+router.patch('/tasks/:taskId/assignments/:assignmentId/status', eventController.updateTaskAssignmentStatus);
+
+// Volunteer routes
+router.get('/volunteer-opportunities', eventController.getVolunteerOpportunities);
+router.post('/tasks/:taskId/volunteer', eventController.volunteerForTask);
+router.get('/my-tasks', eventController.getMyTasks);
+
+// Timeline
+router.post('/:id/timeline', eventController.addTimelineEvent);
+
+// Partnership routes
+router.post('/:id/partnerships', eventController.addPartnership);
+router.get('/partnerships/archive', eventController.getPartnershipArchive);
 
 module.exports = router;

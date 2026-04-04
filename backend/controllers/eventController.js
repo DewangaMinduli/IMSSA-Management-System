@@ -40,9 +40,11 @@ exports.getEventDetails = async (req, res) => {
         if (eventRows.length === 0) return res.status(404).json({ message: 'Event not found' });
         const event = eventRows[0];
 
-        // 2. Get Event Tasks
+        // 2. Get Event Tasks (with volunteer flag and assignment info)
         const [tasks] = await db.execute(`
-            SELECT t.task_id as id, t.title as title, t.deadline, t.status,
+            SELECT t.task_id as id, t.title, t.description, t.deadline, t.status,
+                   t.is_volunteer_opportunity, t.priority,
+                   ta.assignment_id, ta.assigned_user_id, ta.status as assignment_status,
                    u.full_name as assignedTo
             FROM task t
             LEFT JOIN task_assignment ta ON t.task_id = ta.task_id
@@ -53,7 +55,8 @@ exports.getEventDetails = async (req, res) => {
 
         // 3. Get Event OC details
         const [ocMembers] = await db.execute(`
-            SELECT eo.id as eo_id, eo.designation as role, u.full_name as name, u.student_number as id
+            SELECT eo.id as eo_id, eo.user_id, eo.designation as role, 
+                   u.full_name as name, u.student_number as student_id
             FROM event_coordinator eo
             JOIN user u ON eo.user_id = u.user_id
             WHERE eo.event_id = ?
@@ -61,18 +64,22 @@ exports.getEventDetails = async (req, res) => {
 
         // 4. Get Event Timeline
         const [timeline] = await db.execute(`
-            SELECT id, title, description, start_date as date
+            SELECT timeline_id as id, phase_name as title, scheduled_date as date
             FROM event_timeline
             WHERE event_id = ?
-            ORDER BY start_date ASC
+            ORDER BY scheduled_date ASC
         `, [eventId]);
 
-        res.json({
-            event,
-            tasks,
-            committee: ocMembers,
-            timeline
-        });
+        // 5. Get Partnerships for this event
+        const [partnerships] = await db.execute(`
+            SELECT partnership_id, company_name, contact_person, email,
+                   package_type, amount_promised, status
+            FROM partnership
+            WHERE event_id = ?
+            ORDER BY partnership_id DESC
+        `, [eventId]);
+
+        res.json({ event, tasks, committee: ocMembers, timeline, partnerships });
 
     } catch (err) {
         console.error("Error fetching OC Events:", err);
@@ -87,22 +94,15 @@ exports.deleteEvent = async (req, res) => {
         connection = await db.getConnection();
         await connection.beginTransaction();
 
-        // 1. Delete associated Task Assignments
         await connection.execute(
             `DELETE FROM task_assignment WHERE task_id IN (SELECT task_id FROM task WHERE event_id = ?)`,
             [eventId]
         );
-
-        // 2. Delete associated Tasks
         await connection.execute(`DELETE FROM task WHERE event_id = ?`, [eventId]);
-
-        // 3. Delete associated Event Coordinators
         await connection.execute(`DELETE FROM event_coordinator WHERE event_id = ?`, [eventId]);
-
-        // 4. Delete associated Timelines
         await connection.execute(`DELETE FROM event_timeline WHERE event_id = ?`, [eventId]);
+        await connection.execute(`DELETE FROM partnership WHERE event_id = ?`, [eventId]);
 
-        // 5. Delete the Event itself
         const [result] = await connection.execute(`DELETE FROM event WHERE event_id = ?`, [eventId]);
 
         if (result.affectedRows === 0) {
@@ -143,8 +143,6 @@ exports.updateEvent = async (req, res) => {
     }
 };
 
-
-
 exports.createEvent = async (req, res) => {
     let connection;
     try {
@@ -157,7 +155,6 @@ exports.createEvent = async (req, res) => {
         connection = await db.getConnection();
         await connection.beginTransaction();
 
-        // 1. Insert Event
         const [eventResult] = await connection.execute(
             `INSERT INTO event (term_id, event_name, description, venue, created_by_user_id, start_date, end_date)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -165,18 +162,15 @@ exports.createEvent = async (req, res) => {
         );
         const newEventId = eventResult.insertId;
 
-        // 2. Insert OC Members & Upgrade Roles if necessary
         if (ocMembers && ocMembers.length > 0) {
             for (const member of ocMembers) {
                 const { user_id, designation } = member;
-                
-                // Insert into event_coordinator
+
                 await connection.execute(
                     `INSERT INTO event_coordinator (event_id, user_id, designation) VALUES (?, ?, ?)`,
                     [newEventId, user_id, designation || 'Organizing Committee Member']
                 );
 
-                // Check if user has Organizing_Committee role for this term
                 const [roleCheck] = await connection.execute(
                     `SELECT * FROM member_role 
                      WHERE user_id = ? AND term_id = ? AND role_id = (SELECT role_id FROM role WHERE role_name = 'Organizing_Committee')`,
@@ -184,7 +178,6 @@ exports.createEvent = async (req, res) => {
                 );
 
                 if (roleCheck.length === 0) {
-                    // Upgrade their role
                     await connection.execute(
                         `INSERT INTO member_role (user_id, role_id, term_id, status)
                          VALUES (?, (SELECT role_id FROM role WHERE role_name = 'Organizing_Committee'), ?, 'Active')`,
@@ -230,3 +223,349 @@ exports.updateOCDesignation = async (req, res) => {
         res.status(500).json({ message: 'Server Error' });
     }
 };
+
+// Add a new OC member to an event
+exports.addOCMember = async (req, res) => {
+    try {
+        const eventId = req.params.id;
+        const { student_id, role } = req.body;
+        
+        console.log("Adding OC member. Event:", eventId, "Body:", req.body);
+
+        if (!student_id) return res.status(400).json({ message: 'Student Number is required.' });
+
+        // 1. Find user by student number
+        const [users] = await db.execute(
+            `SELECT user_id FROM user WHERE student_number = ? LIMIT 1`,
+            [student_id.trim()]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: `No student found with number: ${student_id}` });
+        }
+
+        const userId = users[0].user_id;
+
+        // 2. Check if already in OC
+        const [existing] = await db.execute(
+            `SELECT id FROM event_coordinator WHERE event_id = ? AND user_id = ?`,
+            [eventId, userId]
+        );
+
+        if (existing.length > 0) {
+            return res.status(409).json({ message: 'Student is already a member of this Organizing Committee.' });
+        }
+
+        // 3. Insert
+        await db.execute(
+            `INSERT INTO event_coordinator (event_id, user_id, designation) VALUES (?, ?, ?)`,
+            [eventId, userId, role || 'Organizing Committee Member']
+        );
+
+        // 4. Optionally: ensure they have the OC role for this term (logic from createEvent)
+        const [eventRows] = await db.execute('SELECT term_id FROM event WHERE event_id = ?', [eventId]);
+        if (eventRows.length > 0) {
+            const termId = eventRows[0].term_id;
+            await db.execute(
+                `INSERT IGNORE INTO member_role (user_id, role_id, term_id, status)
+                 VALUES (?, (SELECT role_id FROM role WHERE role_name = 'Organizing_Committee'), ?, 'Active')`,
+                [userId, termId]
+            );
+        }
+
+        res.status(201).json({ message: 'OC Member added successfully' });
+    } catch (err) {
+        console.error("Error adding OC member:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// Update full OC member row (designation, and optionally swap user)
+exports.updateOCMember = async (req, res) => {
+    try {
+        const { eoId } = req.params;
+        const { designation, student_id } = req.body;
+
+        if (!designation) return res.status(400).json({ message: 'designation is required.' });
+
+        let userId = null;
+        if (student_id) {
+            const [users] = await db.execute(
+                `SELECT user_id FROM user WHERE student_number = ? LIMIT 1`,
+                [student_id.trim()]
+            );
+            if (users.length > 0) userId = users[0].user_id;
+        }
+
+        if (userId) {
+            await db.execute(
+                `UPDATE event_coordinator SET designation = ?, user_id = ? WHERE id = ?`,
+                [designation, userId, eoId]
+            );
+        } else {
+            await db.execute(
+                `UPDATE event_coordinator SET designation = ? WHERE id = ?`,
+                [designation, eoId]
+            );
+        }
+
+        res.json({ message: 'OC member updated successfully' });
+    } catch (err) {
+        console.error("Error updating OC member:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// ---------------------------------------------------------------------------------------------------
+// TASK ENDPOINTS
+// ---------------------------------------------------------------------------------------------------
+
+exports.addTask = async (req, res) => {
+    try {
+        const eventId = req.params.id;
+        const { title, description, assignedTo, deadline, status, is_volunteer_opportunity, priority } = req.body;
+
+        if (!title) return res.status(400).json({ message: "Task title is required." });
+
+        const isVolunteer = is_volunteer_opportunity ? 1 : 0;
+
+        const [result] = await db.execute(
+            `INSERT INTO task (event_id, title, description, deadline, status, is_volunteer_opportunity, priority)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [eventId, title, description || null, deadline || null, status || 'Pending', isVolunteer, priority || 'Medium']
+        );
+
+        // Resolve assignee — accept student_number OR numeric user_id
+        if (assignedTo && !isVolunteer) {
+            let userId = null;
+            const trimmed = String(assignedTo).trim();
+            if (/^\d+$/.test(trimmed)) {
+                // It's a numeric user_id
+                userId = parseInt(trimmed);
+            } else {
+                // Treat as student_number — look up user
+                const [users] = await db.execute(
+                    `SELECT user_id FROM user WHERE student_number = ? LIMIT 1`,
+                    [trimmed]
+                );
+                if (users.length === 0) {
+                    // Clean up the inserted task and return error
+                    await db.execute(`DELETE FROM task WHERE task_id = ?`, [result.insertId]);
+                    return res.status(404).json({ message: `No user found with student number: ${trimmed}` });
+                }
+                userId = users[0].user_id;
+            }
+            await db.execute(
+                `INSERT INTO task_assignment (task_id, assigned_user_id, status) VALUES (?, ?, 'Assigned')`,
+                [result.insertId, userId]
+            );
+        }
+
+        res.status(201).json({ message: 'Task added successfully', task_id: result.insertId });
+    } catch (err) {
+        console.error("Error adding task:", err);
+        res.status(500).json({ message: 'Server Error adding task' });
+    }
+};
+
+// Update a task (title, description, deadline, priority)
+exports.updateTask = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { title, description, deadline, priority, status, is_volunteer_opportunity } = req.body;
+
+        if (!title) return res.status(400).json({ message: 'Title is required.' });
+
+        await db.execute(
+            `UPDATE task SET title = ?, description = ?, deadline = ?, priority = ?, status = ?, is_volunteer_opportunity = ? WHERE task_id = ?`,
+            [title, description || null, deadline || null, priority || 'Medium', status || 'Pending', is_volunteer_opportunity ? 1 : 0, taskId]
+        );
+
+        res.json({ message: 'Task updated successfully' });
+    } catch (err) {
+        console.error("Error updating task:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// Delete a task and its assignments
+exports.deleteTask = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        await db.execute(`DELETE FROM task_assignment WHERE task_id = ?`, [taskId]);
+        await db.execute(`DELETE FROM task WHERE task_id = ?`, [taskId]);
+        res.json({ message: 'Task deleted' });
+    } catch (err) {
+        console.error("Error deleting task:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+
+// Update task assignment status (the lifecycle dropdown)
+exports.updateTaskAssignmentStatus = async (req, res) => {
+    try {
+        const { taskId, assignmentId } = req.params;
+        const { status } = req.body;
+
+        const validStatuses = ['Volunteer', 'Assigned', 'In Progress', 'Submitted', 'Approved', 'Declined'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status value.' });
+        }
+
+        const [result] = await db.execute(
+            `UPDATE task_assignment SET status = ? WHERE assignment_id = ? AND task_id = ?`,
+            [status, assignmentId, taskId]
+        );
+
+        if (result.affectedRows === 0) return res.status(404).json({ message: 'Assignment not found.' });
+
+        res.json({ message: 'Status updated successfully' });
+    } catch (err) {
+        console.error("Error updating assignment status:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// Get tasks assigned to current user across all events
+exports.getMyTasks = async (req, res) => {
+    try {
+        const { user_id } = req.query;
+        if (!user_id) return res.status(400).json({ message: 'user_id is required.' });
+
+        const [tasks] = await db.execute(`
+            SELECT t.task_id as id, t.title, t.description as desc, t.deadline as due,
+                   e.event_name as event, e.event_id,
+                   ta.status, t.priority
+            FROM task t
+            JOIN event e ON t.event_id = e.event_id
+            JOIN task_assignment ta ON t.task_id = ta.task_id
+            WHERE ta.assigned_user_id = ?
+            ORDER BY t.deadline ASC
+        `, [user_id]);
+
+        res.json(tasks);
+    } catch (err) {
+        console.error("Error fetching my tasks:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// Get all volunteer opportunity tasks (for all dashboards)
+exports.getVolunteerOpportunities = async (req, res) => {
+    try {
+        const [tasks] = await db.execute(`
+            SELECT t.task_id as id, t.title, t.description as desc, t.deadline as due,
+                   e.event_name as event, e.event_id,
+                   t.priority
+            FROM task t
+            JOIN event e ON t.event_id = e.event_id
+            WHERE t.is_volunteer_opportunity = 1
+              AND t.status != 'Completed'
+            ORDER BY t.deadline ASC
+        `);
+        res.json(tasks);
+    } catch (err) {
+        console.error("Error fetching volunteer opportunities:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// Member volunteers for a task
+exports.volunteerForTask = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { user_id } = req.body;
+
+        if (!user_id) return res.status(400).json({ message: 'user_id is required.' });
+
+        // Check if already volunteered
+        const [existing] = await db.execute(
+            `SELECT assignment_id FROM task_assignment WHERE task_id = ? AND assigned_user_id = ?`,
+            [taskId, user_id]
+        );
+
+        if (existing.length > 0) {
+            return res.status(409).json({ message: 'You have already volunteered for this task.' });
+        }
+
+        await db.execute(
+            `INSERT INTO task_assignment (task_id, assigned_user_id, status) VALUES (?, ?, 'Volunteer')`,
+            [taskId, user_id]
+        );
+
+        res.status(201).json({ message: 'Successfully volunteered for task.' });
+    } catch (err) {
+        console.error("Error volunteering for task:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// ---------------------------------------------------------------------------------------------------
+// TIMELINE ENDPOINTS
+// ---------------------------------------------------------------------------------------------------
+
+exports.addTimelineEvent = async (req, res) => {
+    try {
+        const eventId = req.params.id;
+        const { title, date } = req.body;
+
+        if (!title || !date) return res.status(400).json({ message: "Title and Date are required." });
+
+        const [result] = await db.execute(
+            `INSERT INTO event_timeline (event_id, phase_name, scheduled_date)
+             VALUES (?, ?, ?)`,
+            [eventId, title, date]
+        );
+        res.status(201).json({ message: 'Timeline event added successfully', timeline_id: result.insertId });
+    } catch (err) {
+        console.error("Error adding timeline event:", err);
+        res.status(500).json({ message: 'Server Error adding timeline event' });
+    }
+};
+
+// ---------------------------------------------------------------------------------------------------
+// PARTNERSHIP ENDPOINTS
+// ---------------------------------------------------------------------------------------------------
+
+exports.addPartnership = async (req, res) => {
+    try {
+        const eventId = req.params.id;
+        const { company_name, contact_person, email, package_type, amount_promised, status } = req.body;
+
+        if (!company_name) return res.status(400).json({ message: "Company Name is required." });
+
+        const validStatuses = ['Paid', 'Declined'];
+        const finalStatus = validStatuses.includes(status) ? status : 'Paid';
+
+        const [result] = await db.execute(
+            `INSERT INTO partnership (event_id, company_name, contact_person, email, package_type, amount_promised, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [eventId, company_name, contact_person || null, email || null, package_type || null, amount_promised || null, finalStatus]
+        );
+        res.status(201).json({ message: 'Partnership added successfully', partnership_id: result.insertId });
+    } catch (err) {
+        console.error("Error adding partnership:", err);
+        res.status(500).json({ message: 'Server Error adding partnership' });
+    }
+};
+
+// Get archived partnerships (last 5 years, across all events)
+exports.getPartnershipArchive = async (req, res) => {
+    try {
+        const [rows] = await db.execute(`
+            SELECT p.partnership_id, p.company_name, p.contact_person, p.email,
+                   p.package_type, p.amount_promised, p.status,
+                   e.event_name, e.start_date
+            FROM partnership p
+            JOIN event e ON p.event_id = e.event_id
+            WHERE e.start_date >= DATE_SUB(NOW(), INTERVAL 5 YEAR)
+            ORDER BY e.start_date DESC
+        `);
+        res.json(rows);
+    } catch (err) {
+        console.error("Error fetching partnership archive:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+

@@ -31,13 +31,40 @@ const MemberDashboard = () => {
         fetchEvents();
     }, []);
 
-    // Placeholder until task APIs exist — empty, no dummy data
-    const myTasks = [];
-    const volunteerOps = [];
     const notifications = [];
+    const [volunteerOps, setVolunteerOps] = useState([]);
+    const [myTasks, setMyTasks] = useState([]);
 
-    const handleApply = (task) => {
-        alert(`Successfully applied for: ${task.title}`);
+    // Fetch live data
+    useEffect(() => {
+        if (!user?.user_id && !user?.id) return;
+        const uid = user.user_id || user.id;
+
+        // Fetch Volunteer Opportunities
+        fetch('http://localhost:5000/api/events/volunteer-opportunities')
+            .then(r => r.ok ? r.json() : [])
+            .then(setVolunteerOps)
+            .catch(() => {});
+
+        // Fetch My Tasks
+        fetch(`http://localhost:5000/api/events/my-tasks?user_id=${uid}`)
+            .then(r => r.ok ? r.json() : [])
+            .then(setMyTasks)
+            .catch(() => {});
+    }, [user]);
+
+    const handleApply = async (task) => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/volunteer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user?.id })
+            });
+            const data = await res.json();
+            alert(res.ok ? `Volunteered for: ${task.title}!` : data.message);
+        } catch (err) {
+            alert('Failed to volunteer. Try again.');
+        }
         setSelectedVolunteerTask(null);
     };
 
