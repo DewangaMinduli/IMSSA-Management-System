@@ -46,7 +46,11 @@ const VolunteerTaskModal = ({ task, isOpen, onClose, onApply }) => {
                             Cancel
                         </button>
                         <button
-                            onClick={() => onApply(task)}
+                            onClick={() => {
+                                if (window.confirm(`Are you sure you want to volunteer for "${task.title}"?`)) {
+                                    onApply(task);
+                                }
+                            }}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-6 py-2 rounded-lg transition-colors shadow-sm"
                         >
                             Volunteer

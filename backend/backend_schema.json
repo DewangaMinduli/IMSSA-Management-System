@@ -177,8 +177,16 @@
       "Extra": ""
     },
     {
+      "Field": "account_number",
+      "Type": "varchar(50)",
+      "Null": "YES",
+      "Key": "",
+      "Default": null,
+      "Extra": ""
+    },
+    {
       "Field": "account_type",
-      "Type": "enum('Cash','Bank','Fixed_Deposit','Recievables')",
+      "Type": "enum('Cash','Current','Savings','Fixed_Deposit')",
       "Null": "NO",
       "Key": "",
       "Default": "Cash",
@@ -534,10 +542,10 @@
     },
     {
       "Field": "package_type",
-      "Type": "enum('Platinum','Gold','Silver','Other')",
+      "Type": "varchar(100)",
       "Null": "YES",
       "Key": "",
-      "Default": "Other",
+      "Default": null,
       "Extra": ""
     },
     {

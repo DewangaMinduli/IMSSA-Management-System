@@ -43,13 +43,13 @@ exports.getEventDetails = async (req, res) => {
         // 2. Get Event Tasks (with volunteer flag and assignment info)
         const [tasks] = await db.execute(`
             SELECT t.task_id as id, t.title, t.description, t.deadline, t.status,
-                   t.is_volunteer_opportunity, t.priority,
-                   ta.assignment_id, ta.assigned_user_id, ta.status as assignment_status,
-                   u.full_name as assignedTo
+                   t.is_volunteer_opportunity, t.priority, t.proof_type,
+                   GROUP_CONCAT(u.full_name SEPARATOR ', ') as assignedTo
             FROM task t
             LEFT JOIN task_assignment ta ON t.task_id = ta.task_id
             LEFT JOIN user u ON ta.assigned_user_id = u.user_id
             WHERE t.event_id = ?
+            GROUP BY t.task_id
             ORDER BY t.deadline ASC
         `, [eventId]);
 
@@ -294,7 +294,11 @@ exports.updateOCMember = async (req, res) => {
                 `SELECT user_id FROM user WHERE student_number = ? LIMIT 1`,
                 [student_id.trim()]
             );
-            if (users.length > 0) userId = users[0].user_id;
+            if (users.length > 0) {
+                userId = users[0].user_id;
+            } else {
+                return res.status(404).json({ message: "Student ID not found." });
+            }
         }
 
         if (userId) {
@@ -321,50 +325,77 @@ exports.updateOCMember = async (req, res) => {
 // ---------------------------------------------------------------------------------------------------
 
 exports.addTask = async (req, res) => {
+    let connection;
     try {
         const eventId = req.params.id;
-        const { title, description, assignedTo, deadline, status, is_volunteer_opportunity, priority } = req.body;
+        const { title, description, assignedTo, deadline, status, is_volunteer_opportunity, priority, proof_type, skills } = req.body;
 
         if (!title) return res.status(400).json({ message: "Task title is required." });
 
         const isVolunteer = is_volunteer_opportunity ? 1 : 0;
+        const pType = proof_type || 'None';
 
-        const [result] = await db.execute(
-            `INSERT INTO task (event_id, title, description, deadline, status, is_volunteer_opportunity, priority)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [eventId, title, description || null, deadline || null, status || 'Pending', isVolunteer, priority || 'Medium']
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [result] = await connection.execute(
+            `INSERT INTO task (event_id, title, description, deadline, status, is_volunteer_opportunity, priority, proof_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [eventId, title, description || null, deadline || null, status || 'Pending', isVolunteer, priority || 'Medium', pType]
         );
+        
+        const newTaskId = result.insertId;
 
-        // Resolve assignee — accept student_number OR numeric user_id
+        // Resolve assignees
         if (assignedTo && !isVolunteer) {
-            let userId = null;
-            const trimmed = String(assignedTo).trim();
-            if (/^\d+$/.test(trimmed)) {
-                // It's a numeric user_id
-                userId = parseInt(trimmed);
-            } else {
-                // Treat as student_number — look up user
-                const [users] = await db.execute(
+            let assignees = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+            for (const assignee of assignees) {
+                if (!assignee) continue;
+                let userId = null;
+                const trimmed = String(assignee).trim();
+                
+                // Always try looking up as a student number first
+                const [users] = await connection.execute(
                     `SELECT user_id FROM user WHERE student_number = ? LIMIT 1`,
                     [trimmed]
                 );
-                if (users.length === 0) {
-                    // Clean up the inserted task and return error
-                    await db.execute(`DELETE FROM task WHERE task_id = ?`, [result.insertId]);
-                    return res.status(404).json({ message: `No user found with student number: ${trimmed}` });
+                
+                if (users.length > 0) {
+                    userId = users[0].user_id;
+                } else if (/^\d+$/.test(trimmed)) {
+                    // Fallback to direct ID if numeric and no student number matches
+                    userId = parseInt(trimmed);
                 }
-                userId = users[0].user_id;
+
+                if (userId) {
+                    await connection.execute(
+                        `INSERT INTO task_assignment (task_id, assigned_user_id, status) VALUES (?, ?, 'Assigned')`,
+                        [newTaskId, userId]
+                    );
+                }
             }
-            await db.execute(
-                `INSERT INTO task_assignment (task_id, assigned_user_id, status) VALUES (?, ?, 'Assigned')`,
-                [result.insertId, userId]
-            );
         }
 
-        res.status(201).json({ message: 'Task added successfully', task_id: result.insertId });
+        // Apply skills mapping
+        if (skills && Array.isArray(skills)) {
+            for (const skillId of skills) {
+                if (skillId) {
+                    await connection.execute(
+                         `INSERT INTO task_skill (task_id, skill_tag_id) VALUES (?, ?)`,
+                         [newTaskId, parseInt(skillId)]
+                    );
+                }
+            }
+        }
+
+        await connection.commit();
+        res.status(201).json({ message: 'Task added successfully', task_id: newTaskId });
     } catch (err) {
+        if (connection) await connection.rollback();
         console.error("Error adding task:", err);
         res.status(500).json({ message: 'Server Error adding task' });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
@@ -389,15 +420,31 @@ exports.updateTask = async (req, res) => {
 };
 
 // Delete a task and its assignments
+// Delete a task, assignments, and skills
 exports.deleteTask = async (req, res) => {
+    let connection;
     try {
-        const { taskId } = req.params;
-        await db.execute(`DELETE FROM task_assignment WHERE task_id = ?`, [taskId]);
-        await db.execute(`DELETE FROM task WHERE task_id = ?`, [taskId]);
-        res.json({ message: 'Task deleted' });
+        const { id, taskId } = req.params;
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        await connection.execute(`DELETE FROM task_skill WHERE task_id = ?`, [taskId]);
+        await connection.execute(`DELETE FROM task_assignment WHERE task_id = ?`, [taskId]);
+        const [result] = await connection.execute(`DELETE FROM task WHERE task_id = ? AND event_id = ?`, [taskId, id]);
+
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: "Task not found." });
+        }
+
+        await connection.commit();
+        res.json({ message: 'Task deleted successfully' });
     } catch (err) {
+        if(connection) await connection.rollback();
         console.error("Error deleting task:", err);
         res.status(500).json({ message: 'Server Error' });
+    } finally {
+        if(connection) connection.release();
     }
 };
 
@@ -426,6 +473,26 @@ exports.updateTaskAssignmentStatus = async (req, res) => {
         res.status(500).json({ message: 'Server Error' });
     }
 };
+
+exports.updateTaskStatus = async (req, res) => {
+    try {
+        const { id, taskId } = req.params;
+        const { status } = req.body;
+        
+        if (!status) return res.status(400).json({ message: "Status is required." });
+
+        await db.execute(
+            `UPDATE task SET status = ? WHERE task_id = ? AND event_id = ?`,
+            [status, taskId, id]
+        );
+        res.json({ message: 'Task status updated' });
+    } catch (err) {
+        console.error("Error updating task status:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+
 
 // Get tasks assigned to current user across all events
 exports.getMyTasks = async (req, res) => {
@@ -490,7 +557,7 @@ exports.volunteerForTask = async (req, res) => {
         }
 
         await db.execute(
-            `INSERT INTO task_assignment (task_id, assigned_user_id, status) VALUES (?, ?, 'Volunteer')`,
+            `INSERT INTO task_assignment (task_id, assigned_user_id, status) VALUES (?, ?, 'Assigned')`,
             [taskId, user_id]
         );
 
@@ -521,6 +588,34 @@ exports.addTimelineEvent = async (req, res) => {
     } catch (err) {
         console.error("Error adding timeline event:", err);
         res.status(500).json({ message: 'Server Error adding timeline event' });
+    }
+};
+
+exports.updateTimelineEvent = async (req, res) => {
+    try {
+        const { id, timelineId } = req.params;
+        const { title, date } = req.body;
+        if (!title || !date) return res.status(400).json({ message: "Title and Date are required." });
+
+        await db.execute(
+            `UPDATE event_timeline SET phase_name = ?, scheduled_date = ? WHERE timeline_id = ? AND event_id = ?`,
+            [title, date, timelineId, id]
+        );
+        res.json({ message: 'Timeline event updated' });
+    } catch (err) {
+        console.error("Error updating timeline:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.deleteTimelineEvent = async (req, res) => {
+    try {
+        const { id, timelineId } = req.params;
+        await db.execute(`DELETE FROM event_timeline WHERE timeline_id = ? AND event_id = ?`, [timelineId, id]);
+        res.json({ message: 'Timeline event deleted' });
+    } catch (err) {
+        console.error("Error deleting timeline:", err);
+        res.status(500).json({ message: 'Server Error' });
     }
 };
 
@@ -565,6 +660,37 @@ exports.getPartnershipArchive = async (req, res) => {
         res.json(rows);
     } catch (err) {
         console.error("Error fetching partnership archive:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.updatePartnership = async (req, res) => {
+    try {
+        const { id, partnershipId } = req.params;
+        const { company_name, contact_person, email, package_type, amount_promised, status } = req.body;
+        
+        if (!company_name) return res.status(400).json({ message: "Company Name is required." });
+
+        await db.execute(
+            `UPDATE partnership 
+             SET company_name=?, contact_person=?, email=?, package_type=?, amount_promised=?, status=?
+             WHERE partnership_id = ? AND event_id = ?`,
+             [company_name, contact_person || null, email || null, package_type || null, amount_promised || null, status || 'Paid', partnershipId, id]
+        );
+        res.json({ message: 'Partnership updated' });
+    } catch (err) {
+        console.error("Error updating partnership:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.deletePartnership = async (req, res) => {
+    try {
+        const { id, partnershipId } = req.params;
+        await db.execute(`DELETE FROM partnership WHERE partnership_id = ? AND event_id = ?`, [partnershipId, id]);
+        res.json({ message: 'Partnership deleted' });
+    } catch (err) {
+        console.error("Error deleting partnership:", err);
         res.status(500).json({ message: 'Server Error' });
     }
 };

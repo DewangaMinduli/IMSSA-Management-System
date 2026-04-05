@@ -12,11 +12,25 @@ const OCEventDetails = () => {
     const [showNotifications, setShowNotifications] = useState(false);
     const notifications = [];
 
+    const [availableSkills, setAvailableSkills] = useState([]);
+
+    const loadSkills = async () => {
+        try {
+            const res = await fetch('http://localhost:5000/api/skills');
+            if (res.ok) setAvailableSkills(await res.json());
+        } catch (err) {}
+    };
+
+    useEffect(() => {
+        loadSkills();
+    }, []);
+
     const [activeTab, setActiveTab] = useState('Overview');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const [showTaskModal, setShowTaskModal] = useState(false);
-    const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'High', deadline: '', assignedTo: '', is_volunteer_opportunity: false });
+    const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
+    const [taskAssignInputValue, setTaskAssignInputValue] = useState('');
 
     const [showOcModal, setShowOcModal] = useState(false);
     const [newOC, setNewOC] = useState({ name: '', student_number: '', role: 'Organizing Committee Member' });
@@ -44,19 +58,44 @@ const OCEventDetails = () => {
 
     const [editOcStudentId, setEditOcStudentId] = useState('');
 
+    // TIMELINE EDIT STATE
+    const [editTimelineId, setEditTimelineId] = useState(null);
+    const [editTimelineData, setEditTimelineData] = useState({ title: '', date: '' });
+
+    const handleSaveTimelineEdit = async (timelineId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/timeline/${timelineId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(editTimelineData)
+            });
+            if (res.ok) {
+                setEditTimelineId(null);
+                fetchEventDetails();
+            } else {
+                alert('Error updating timeline stage');
+            }
+        } catch (err) { console.error(err); }
+    };
+
     const handleAddTask = async (e) => {
         e.preventDefault();
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:5000/api/tasks/event/${eventId}`, {
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(newTask)
             });
             if (res.ok) {
                 setShowTaskModal(false);
-                setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: '', is_volunteer_opportunity: false });
+                setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
+                setTaskAssignInputValue('');
                 fetchEventDetails();
+            } else {
+                const data = await res.json();
+                alert(data.message || 'Error adding task');
             }
         } catch (err) {
             console.error('Error adding task', err);
@@ -97,7 +136,11 @@ const OCEventDetails = () => {
             if (res.ok) {
                 setShowOcModal(false);
                 setNewOC({ name: '', student_number: '', role: 'Organizing Committee Member' });
+                setSearchQuery('');
                 fetchEventDetails();
+            } else {
+                const data = await res.json();
+                alert(data.message || 'Error adding OC Member: Check if student exists or is already added.');
             }
         } catch (err) {
             console.error(err);
@@ -107,6 +150,7 @@ const OCEventDetails = () => {
     const handleSaveRole = async (eoId) => {
         try {
             const token = localStorage.getItem('token');
+            console.log("Saving OC:", { eoId, designation: editRoleStr, student_id: editOcStudentId });
             const res = await fetch(`http://localhost:5000/api/events/oc/${eoId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -117,10 +161,38 @@ const OCEventDetails = () => {
                 setEditRoleStr('');
                 setEditOcStudentId('');
                 fetchEventDetails();
+            } else {
+                const data = await res.json();
+                alert(data.message || 'Error saving role or student ID. Make sure student ID is valid.');
             }
         } catch (err) {
             console.error(err);
         }
+    };
+
+    const handleDeleteTask = async (taskId) => {
+        if (!window.confirm("Are you sure you want to delete this task?")) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks/${taskId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) fetchEventDetails();
+        } catch (err) { console.error(err); }
+    };
+
+    const handleCancelTask = async (taskId) => {
+        if (!window.confirm("Are you sure you want to cancel this task?")) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks/${taskId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ status: 'Cancelled' })
+            });
+            if (res.ok) fetchEventDetails();
+        } catch (err) { console.error(err); }
     };
 
     const handleEditOverview = async (e) => {
@@ -153,6 +225,30 @@ const OCEventDetails = () => {
                 setNewTimeline({ title: '', date: '' });
                 fetchEventDetails();
             }
+        } catch (err) { console.error(err); }
+    };
+
+    const handleDeleteTimeline = async (timelineId) => {
+        if (!window.confirm("Are you sure you want to delete this stage?")) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/timeline/${timelineId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) fetchEventDetails();
+        } catch (err) { console.error(err); }
+    };
+
+    const handleDeletePartnership = async (partnershipId) => {
+        if (!window.confirm("Are you sure you want to delete this partnership?")) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/partnerships/${partnershipId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) fetchEventDetails();
         } catch (err) { console.error(err); }
     };
 
@@ -203,10 +299,7 @@ const OCEventDetails = () => {
         fetchEventDetails();
     }, [eventId]);
 
-    const handleSaveRole = async (memberId) => {
-        setEditingOcId(null);
-        // Backend Hook to be appended
-    };
+
 
     const handleDelete = async () => {
         if (!window.confirm("Are you sure you want to delete this event? This cannot be undone.")) return;
@@ -246,18 +339,40 @@ const OCEventDetails = () => {
                         }); 
                         setShowOverviewModal(true); 
                     }} 
-                    className="text-blue-600 font-medium text-sm hover:underline flex items-center gap-2"
+                    className="bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-2"
                 >
                     <Edit2 size={16} /> Edit Overview
                 </button>
             </div>
             
-            <div className="bg-gray-50 rounded-lg p-5 border border-gray-100">
-                <p className="text-gray-700 text-sm mb-6 leading-relaxed whitespace-pre-wrap">{event.description || 'No specific description provided.'}</p>
-                <div className="grid grid-cols-2 gap-4 text-sm mt-4 border-t border-gray-200 pt-4">
-                    <div>
-                        <span className="font-bold text-gray-500 block mb-1">Venue</span>
-                        <span className="text-gray-900">{event.venue || 'TBA'}</span>
+            <div className="bg-gradient-to-br from-indigo-50 via-white to-teal-50 rounded-xl p-8 border border-gray-100 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-teal-100 opacity-20 rounded-bl-full pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-100 opacity-20 rounded-tr-full pointer-events-none"></div>
+                
+                <h4 className="text-xl font-bold text-indigo-900 mb-4">{event.event_name}</h4>
+                <p className="text-gray-700 text-base mb-8 leading-relaxed whitespace-pre-wrap relative z-10">{event.description || <span className="italic text-gray-400">No specific description provided. Update overview to add a description.</span>}</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm border-t border-gray-200/60 pt-6 relative z-10">
+                    <div className="bg-white/60 p-4 rounded-lg border border-white/80 shadow-sm backdrop-blur-sm">
+                        <span className="font-bold text-indigo-900/60 block mb-2 uppercase tracking-wide text-xs">Venue</span>
+                        <span className="text-gray-900 font-medium flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600"><Home size={14}/></span>
+                            {event.venue || 'TBA'}
+                        </span>
+                    </div>
+                    <div className="bg-white/60 p-4 rounded-lg border border-white/80 shadow-sm backdrop-blur-sm">
+                        <span className="font-bold text-teal-900/60 block mb-2 uppercase tracking-wide text-xs">Start Date</span>
+                        <span className="text-gray-900 font-medium flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600"><Calendar size={14}/></span>
+                            {event.start_date ? new Date(event.start_date).toLocaleDateString() : 'TBA'}
+                        </span>
+                    </div>
+                    <div className="bg-white/60 p-4 rounded-lg border border-white/80 shadow-sm backdrop-blur-sm">
+                        <span className="font-bold text-orange-900/60 block mb-2 uppercase tracking-wide text-xs">End Date</span>
+                        <span className="text-gray-900 font-medium flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600"><Calendar size={14}/></span>
+                            {event.end_date ? new Date(event.end_date).toLocaleDateString() : 'TBA'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -290,7 +405,19 @@ const OCEventDetails = () => {
                                     <div className="font-medium text-gray-900">{task.title}</div>
                                     <div className="text-xs text-gray-400 mt-1">{task.description}</div>
                                 </td>
-                                <td className="px-6 py-4 text-gray-500 font-medium italic">{task.assignedTo || 'Unassigned'}</td>
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-gray-900 font-medium">
+                                            {task.assignedTo ? (
+                                                <span className="text-indigo-600 italic">Assignees: <span className="text-gray-700 font-bold not-italic">{task.assignedTo}</span></span>
+                                            ) : (
+                                                <span className={`${task.is_volunteer_opportunity ? 'text-purple-500 font-semibold italic' : 'text-orange-500 font-bold underline'}`}>
+                                                    {task.is_volunteer_opportunity ? 'Volunteer Needed' : 'Requires Appointment'}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4 text-gray-500">{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'None'}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2 py-1 rounded text-xs font-bold ${task.is_volunteer_opportunity ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -298,22 +425,34 @@ const OCEventDetails = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4">
-                                    {task.is_volunteer_opportunity ? (
-                                        <span className="text-gray-400 italic text-xs">No assignee</span>
-                                    ) : (
+                                    <div className="flex items-center gap-2">
                                         <select 
-                                            className="border border-gray-200 rounded px-2 py-1 text-xs outline-none text-gray-700" 
-                                            value={task.assignment_status || 'Pending'}
-                                            onChange={(e) => console.log('Update Status API needed', e.target.value)}
+                                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none text-gray-700 focus:ring-1 focus:ring-blue-500 transition-all bg-white shadow-sm" 
+                                            value={task.status || 'Pending'}
+                                            onChange={(e) => {
+                                                const newStatus = e.target.value;
+                                                fetch(`http://localhost:5000/api/events/${eventId}/tasks/${task.id}`, {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                                                    body: JSON.stringify({ status: newStatus })
+                                                }).then(res => { if(res.ok) fetchEventDetails(); });
+                                            }}
                                         >
-                                            <option value="Volunteer">Volunteer</option>
-                                            <option value="Assigned">Assigned</option>
+                                            <option value="Pending">Pending</option>
                                             <option value="In Progress">In Progress</option>
                                             <option value="Submitted">Submitted</option>
                                             <option value="Approved">Approved</option>
                                             <option value="Declined">Declined</option>
+                                            <option value="Cancelled">Cancelled</option>
                                         </select>
-                                    )}
+                                        <button 
+                                            onClick={() => handleDeleteTask(task.id)} 
+                                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" 
+                                            title="Delete Task"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -348,30 +487,85 @@ const OCEventDetails = () => {
                         {ocMembers.map(member => (
                             <tr key={member.eo_id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 font-bold text-gray-900">{member.name}</td>
-                                <td className="px-6 py-4 text-gray-500">{member.student_id || member.id}</td>
                                 <td className="px-6 py-4 text-gray-500">
                                     {editingOcId === member.eo_id ? (
-                                        <select
+                                        <input
                                             className="w-full border border-gray-300 p-1.5 rounded-md text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                            value={editRoleStr}
-                                            onChange={(e) => setEditRoleStr(e.target.value)}
-                                        >
-                                            {PREDEFINED_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                                        </select>
+                                            value={editOcStudentId}
+                                            onChange={e => setEditOcStudentId(e.target.value)}
+                                            placeholder="Student ID"
+                                        />
+                                    ) : (
+                                        member.student_id || member.id
+                                    )}
+                                </td>
+                                <td className="px-6 py-4 text-gray-500">
+                                    {editingOcId === member.eo_id ? (
+                                        <>
+                                            <input
+                                                list="role-suggestions"
+                                                className="w-full border border-gray-300 p-1.5 rounded-md text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                                value={editRoleStr}
+                                                onChange={(e) => setEditRoleStr(e.target.value)}
+                                                placeholder="Custom Role or Select..."
+                                            />
+                                            <datalist id="role-suggestions">
+                                                {PREDEFINED_ROLES.map(r => <option key={r} value={r} />)}
+                                            </datalist>
+                                        </>
                                     ) : (
                                         member.role
                                     )}
                                 </td>
-                                <td className="px-6 py-4 flex gap-3 h-full items-center">
+                                <td className="px-6 py-4">
                                     {editingOcId === member.eo_id ? (
-                                        <>
-                                            <button onClick={() => handleSaveRole(member.eo_id)} className="text-green-600 font-medium text-xs hover:underline flex items-center gap-1"><CheckCircle size={12} /> Save</button>
-                                            <button onClick={() => setEditingOcId(null)} className="text-gray-500 font-medium text-xs hover:underline flex items-center gap-1"><X size={12} /> Cancel</button>
-                                        </>
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => handleSaveRole(member.eo_id)} 
+                                                className="text-green-600 font-bold text-xs hover:bg-green-50 px-2 py-1 rounded border border-green-200 transition-colors flex items-center gap-1"
+                                            >
+                                                <CheckCircle size={14} /> Save
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    setEditingOcId(null);
+                                                    setEditOcStudentId('');
+                                                    setEditRoleStr('');
+                                                }} 
+                                                className="text-gray-400 font-bold text-xs hover:bg-gray-50 px-2 py-1 rounded border border-gray-200 transition-colors flex items-center gap-1"
+                                            >
+                                                <X size={14} /> Cancel
+                                            </button>
+                                        </div>
                                     ) : (
-                                        <>
-                                            <button onClick={() => { setEditingOcId(member.eo_id); setEditRoleStr(member.role); }} className="text-blue-600 font-medium text-xs hover:underline flex items-center gap-1"><Edit size={12} /> Edit Role</button>
-                                        </>
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => { 
+                                                    setEditingOcId(member.eo_id); 
+                                                    setEditRoleStr(member.role); 
+                                                    setEditOcStudentId(member.student_id || member.id || ''); 
+                                                }} 
+                                                className="text-blue-500 hover:text-blue-700 transition flex items-center gap-1 text-xs font-semibold bg-blue-50 px-2 py-1 rounded border border-blue-100"
+                                            >
+                                                <Edit2 size={12} /> Edit
+                                            </button>
+                                            <button 
+                                                onClick={async () => {
+                                                    if(!window.confirm("Remove this member from OC?")) return;
+                                                    try {
+                                                        const token = localStorage.getItem('token');
+                                                        const res = await fetch(`http://localhost:5000/api/events/oc/${member.eo_id}`, {
+                                                            method: 'DELETE',
+                                                            headers: { 'Authorization': `Bearer ${token}` }
+                                                        });
+                                                        if (res.ok) fetchEventDetails();
+                                                    } catch (err) {}
+                                                }} 
+                                                className="text-red-500 hover:text-red-700 transition flex items-center gap-1 text-xs font-semibold bg-red-50 px-2 py-1 rounded border border-red-100"
+                                            >
+                                                <Trash2 size={12} /> Delete
+                                            </button>
+                                        </div>
                                     )}
                                 </td>
                             </tr>
@@ -405,7 +599,7 @@ const OCEventDetails = () => {
     const renderPartnerships = () => (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-gray-800">Request Letters / Partnerships</h3>
+                <h3 className="text-lg font-bold text-gray-800">Partnerships</h3>
                 <button onClick={() => { setEditingId(null); setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Paid' }); setShowPartnerModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
                     <Plus size={16} /> Add Partner
                 </button>
@@ -440,7 +634,10 @@ const OCEventDetails = () => {
                                         <span className={`px-2 py-1 rounded text-xs font-bold ${p.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <button onClick={() => handleEditPartner(p)} className="text-blue-600 font-medium text-xs hover:underline flex items-center gap-1"><Edit2 size={12}/> Edit</button>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => handleEditPartner(p)} className="text-blue-600 font-medium text-xs hover:underline flex items-center gap-1"><Edit2 size={12}/> Edit</button>
+                                            <button onClick={() => handleDeletePartnership(p.partnership_id)} className="text-red-500 font-medium text-xs hover:underline flex items-center gap-1"><Trash2 size={12}/> Delete</button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -464,13 +661,13 @@ const OCEventDetails = () => {
                                 <input required type="email" placeholder="Email" className="w-full border p-2 rounded text-sm" value={newPartner.email} onChange={e => setNewPartner({ ...newPartner, email: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <select className="w-full border p-2 rounded text-sm" value={newPartner.package_type} onChange={e => setNewPartner({ ...newPartner, package_type: e.target.value })}>
-                                    <option>Monetary</option>
-                                    <option>Beverage</option>
-                                    <option>Gift Partner</option>
-                                    <option>Other</option>
-                                </select>
-                                <input placeholder="Amount Promised (if any)" className="w-full border p-2 rounded text-sm" type="number" value={newPartner.amount_promised} onChange={e => setNewPartner({ ...newPartner, amount_promised: e.target.value })} />
+                                <input list="package-dropdown" placeholder="Type Package or Select..." className="w-full border p-2 rounded text-sm" value={newPartner.package_type} onChange={e => setNewPartner({ ...newPartner, package_type: e.target.value })} />
+                                <datalist id="package-dropdown">
+                                    <option value="Monetary" />
+                                    <option value="Beverage" />
+                                    <option value="Gift Partner" />
+                                </datalist>
+                                <input placeholder="Amount Promised (if any)" className="w-full border p-2 rounded text-sm" type="text" value={newPartner.amount_promised} onChange={e => setNewPartner({ ...newPartner, amount_promised: e.target.value })} />
                             </div>
                             <select className="w-full border border-gray-200 p-3 rounded text-sm outline-none" value={newPartner.status} onChange={e => setNewPartner({ ...newPartner, status: e.target.value })}>
                                 <option value="Paid">Paid</option>
@@ -486,20 +683,46 @@ const OCEventDetails = () => {
 
     const renderTimeline = () => (
         <div>
-            <h3 className="text-lg font-bold text-gray-800 mb-6">Event Timeline</h3>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-800">Event Timeline</h3>
+                <button onClick={() => setShowTimelineModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
+                    <Plus size={16} /> Add Stage
+                </button>
+            </div>
             <div className="relative border-l-2 border-gray-100 ml-4 space-y-8">
                 {timeline.map((item, index) => (
                     <div key={item.id} className="ml-8 relative">
                         <span className="absolute -left-[41px] top-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold bg-teal-500">
                             {index + 1}
                         </span>
-                        <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div>
-                                <h4 className="font-bold text-gray-900 text-sm">{item.title}</h4>
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                    <Clock size={12} /> {new Date(item.date).toLocaleDateString()}
+                        <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors group">
+                            {editTimelineId === item.id ? (
+                                <div className="flex gap-4 flex-1 items-center">
+                                    <input value={editTimelineData.title} onChange={e => setEditTimelineData({...editTimelineData, title: e.target.value})} className="border border-gray-300 p-2 rounded text-sm w-1/2" />
+                                    <input type="date" value={editTimelineData.date} onChange={e => setEditTimelineData({...editTimelineData, date: e.target.value})} className="border border-gray-300 p-2 rounded text-sm w-1/4" />
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleSaveTimelineEdit(item.id)} className="text-green-600 font-bold text-xs hover:underline">Save</button>
+                                        <button onClick={() => setEditTimelineId(null)} className="text-gray-500 font-bold text-xs hover:underline">Cancel</button>
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900 text-sm">{item.title}</h4>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                                            <Clock size={12} /> {new Date(item.date).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => { setEditTimelineId(item.id); setEditTimelineData({ title: item.title, date: item.date.split('T')[0] }); }} className="text-white bg-blue-400 hover:bg-blue-500 rounded-md p-1.5 transition-colors opacity-0 group-hover:opacity-100 shadow-sm" title="Edit Phase">
+                                            <Edit2 size={14} />
+                                        </button>
+                                        <button onClick={() => handleDeleteTimeline(item.id)} className="text-white bg-red-400 hover:bg-red-500 rounded-md p-1.5 transition-colors opacity-0 group-hover:opacity-100 shadow-sm" title="Delete Phase">
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -649,8 +872,109 @@ const OCEventDetails = () => {
                             </div>
 
                             {!newTask.is_volunteer_opportunity && (
-                                <input placeholder="IM/2023/025" className="w-full border border-gray-200 p-3 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors" value={newTask.assignedTo} onChange={e => setNewTask({ ...newTask, assignedTo: e.target.value })} />
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 block">Assigned To (Student Numbers)</label>
+                                    <div className="flex flex-wrap gap-2 mb-2 p-2 border border-gray-200 rounded-lg min-h-[42px]">
+                                        {Array.isArray(newTask.assignedTo) && newTask.assignedTo.map((assignee, idx) => (
+                                            <span key={idx} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded flex items-center gap-1">
+                                                {assignee} 
+                                                <X size={12} className="cursor-pointer" onClick={() => setNewTask({...newTask, assignedTo: newTask.assignedTo.filter(a => a !== assignee)})} />
+                                            </span>
+                                        ))}
+                                        <div className="relative flex-1 min-w-[120px]">
+                                            <input 
+                                                placeholder="Type name or IM/..." 
+                                                className="w-full outline-none text-sm bg-transparent" 
+                                                value={taskAssignInputValue} 
+                                                onChange={e => {
+                                                    setTaskAssignInputValue(e.target.value);
+                                                    handleSearchStudent(e.target.value);
+                                                }} 
+                                                onKeyDown={e => {
+                                                    if(e.key === 'Enter' && taskAssignInputValue) {
+                                                        e.preventDefault();
+                                                        setNewTask({...newTask, assignedTo: [...newTask.assignedTo, taskAssignInputValue]});
+                                                        setTaskAssignInputValue('');
+                                                        setShowSuggestions(false);
+                                                    }
+                                                }}
+                                            />
+                                            {showSuggestions && suggestions.length > 0 && taskAssignInputValue.length > 2 && (
+                                                <ul className="absolute z-50 w-[300px] bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto left-0">
+                                                    {suggestions.map(s => (
+                                                        <li key={s.user_id} className="p-2 text-sm hover:bg-gray-100 cursor-pointer flex justify-between" 
+                                                            onClick={() => {
+                                                                setNewTask({...newTask, assignedTo: [...newTask.assignedTo, s.student_no]});
+                                                                setTaskAssignInputValue('');
+                                                                setShowSuggestions(false);
+                                                            }}>
+                                                            <span className="font-semibold">{s.full_name}</span>
+                                                            <span className="text-gray-500">{s.student_no}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             )}
+
+                            <div className="flex items-center gap-2 border border-gray-200 p-3 rounded-lg">
+                                <input type="checkbox" id="requireSubmission" checked={newTask.proof_type === 'File_Upload'} onChange={e => setNewTask({...newTask, proof_type: e.target.checked ? 'File_Upload' : 'None'})} />
+                                <label htmlFor="requireSubmission" className="text-sm font-semibold text-gray-700">Requires Submission (Proof)</label>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 block">Recommended Skills</label>
+                                <div className="flex flex-wrap gap-2 mb-2 p-2 border border-gray-200 rounded-lg min-h-[42px]">
+                                    {newTask.skills.map((skillId, idx) => {
+                                        const skillObj = availableSkills.find(s => String(s.tag_id) === String(skillId));
+                                        return (
+                                            <span key={idx} className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded flex items-center gap-1">
+                                                {skillObj ? skillObj.name : 'Unknown'} 
+                                                <X size={12} className="cursor-pointer" onClick={() => setNewTask({...newTask, skills: newTask.skills.filter(s => s !== skillId)})} />
+                                            </span>
+                                        );
+                                    })}
+                                    <input 
+                                        list="available-skills-list"
+                                        placeholder="Type or select a skill then press Enter" 
+                                        className="w-full outline-none text-sm bg-transparent flex-1"
+                                        onKeyDown={async (e) => {
+                                            if (e.key === 'Enter' && e.target.value.trim()) {
+                                                e.preventDefault();
+                                                const val = e.target.value.trim();
+                                                let found = availableSkills.find(s => s.name.toLowerCase() === val.toLowerCase());
+                                                if (found) {
+                                                    if (!newTask.skills.includes(found.tag_id)) {
+                                                        setNewTask({...newTask, skills: [...newTask.skills, found.tag_id]});
+                                                    }
+                                                } else {
+                                                    // Create new skill via API
+                                                    try {
+                                                        const res = await fetch('http://localhost:5000/api/skills', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ name: val })
+                                                        });
+                                                        if (res.ok) {
+                                                            const data = await res.json();
+                                                            setAvailableSkills([...availableSkills, data.skill]);
+                                                            setNewTask({...newTask, skills: [...newTask.skills, data.skill.tag_id]});
+                                                        }
+                                                    } catch (err) {}
+                                                }
+                                                e.target.value = '';
+                                            }
+                                        }}
+                                    />
+                                    <datalist id="available-skills-list">
+                                        {availableSkills.map(skill => (
+                                            <option key={skill.tag_id} value={skill.name} />
+                                        ))}
+                                    </datalist>
+                                </div>
+                            </div>
 
                             <button type="submit" className="w-full bg-blue-600 text-white mt-4 py-3 rounded-lg font-bold text-sm tracking-wide shadow-sm hover:bg-blue-700 transition-colors">Add Task</button>
                         </form>
@@ -667,34 +991,109 @@ const OCEventDetails = () => {
                         </div>
                         <form onSubmit={handleAddOC} className="space-y-4">
                             <div className="relative">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Search Member</label>
                                 <input 
-                                    required 
-                                    placeholder="Search by Name or IM/..." 
-                                    className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" 
+                                    placeholder="Start typing name..." 
+                                    className="w-full border p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 bg-gray-50 focus:bg-white transition-all" 
                                     value={searchQuery} 
                                     onChange={e => handleSearchStudent(e.target.value)} 
                                 />
-                                {showSuggestions && suggestions.length > 0 && (
-                                    <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                                {showSuggestions && suggestions.length > 0 && searchQuery.length > 2 && (
+                                    <ul className="absolute z-[70] w-full bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-48 overflow-y-auto">
                                         {suggestions.map(s => (
-                                            <li key={s.user_id} className="p-2 text-sm hover:bg-gray-100 cursor-pointer flex justify-between" onClick={() => handleSelectStudent(s)}>
-                                                <span className="font-semibold">{s.full_name}</span>
-                                                <span className="text-gray-500">{s.student_no}</span>
+                                            <li 
+                                                key={s.user_id} 
+                                                className="p-3 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-gray-50 last:border-0" 
+                                                onClick={() => handleSelectStudent(s)}
+                                            >
+                                                <div>
+                                                    <span className="font-bold text-gray-800 block">{s.full_name}</span>
+                                                    <span className="text-gray-500 text-xs">{s.student_no}</span>
+                                                </div>
+                                                <Plus size={14} className="text-blue-500" />
                                             </li>
                                         ))}
                                     </ul>
                                 )}
                             </div>
-                            {newOC.name && (
-                                <div className="text-xs text-gray-500 bg-gray-50 p-2 border border-gray-100 rounded">
-                                    <div><span className="font-medium">Selected:</span> {newOC.name}</div>
-                                    <div><span className="font-medium">ID:</span> {newOC.student_number}</div>
+
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Full Name</label>
+                                    <input 
+                                        required 
+                                        placeholder="Member Full Name" 
+                                        className="w-full border p-2.5 rounded-lg text-sm outline-none bg-gray-50" 
+                                        value={newOC.name} 
+                                        onChange={e => setNewOC({ ...newOC, name: e.target.value })} 
+                                    />
                                 </div>
-                            )}
-                            <select className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" value={newOC.role} onChange={e => setNewOC({ ...newOC, role: e.target.value })}>
-                                {PREDEFINED_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold text-sm hover:bg-blue-700 transition">Add Member</button>
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Student ID / Number</label>
+                                    <input 
+                                        required 
+                                        placeholder="IM/202X/XXX" 
+                                        className="w-full border p-2.5 rounded-lg text-sm outline-none bg-gray-50" 
+                                        value={newOC.student_number} 
+                                        onChange={e => setNewOC({ ...newOC, student_number: e.target.value })} 
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Designation / Role</label>
+                                <input list="oc-newrole-suggestions" placeholder="e.g. Finance Coordinator" className="w-full border p-2.5 rounded-lg text-sm outline-none bg-gray-50" value={newOC.role} onChange={e => setNewOC({ ...newOC, role: e.target.value })} />
+                            </div>
+                            <datalist id="oc-newrole-suggestions">
+                                {PREDEFINED_ROLES.map(r => <option key={r} value={r} />)}
+                            </datalist>
+                            <button type="submit" className="w-full bg-blue-600 text-white py-3 mt-2 rounded-lg font-bold text-sm hover:bg-blue-700 shadow-md transition-all active:scale-95">Add Member to OC</button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showOverviewModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[80]">
+                    <div className="bg-white p-6 rounded-xl w-[500px] shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg">Edit Event Overview</h3>
+                            <button onClick={() => setShowOverviewModal(false)}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
+                        </div>
+                        <form onSubmit={handleEditOverview} className="space-y-4">
+                            <input required placeholder="Event Name" className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" value={editOverviewData.event_name} onChange={e => setEditOverviewData({ ...editOverviewData, event_name: e.target.value })} />
+                            <textarea placeholder="Event Description..." className="w-full border p-2 rounded text-sm h-32 resize-none outline-none focus:border-blue-500" value={editOverviewData.description} onChange={e => setEditOverviewData({ ...editOverviewData, description: e.target.value })}></textarea>
+                            <input placeholder="Venue" className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" value={editOverviewData.venue} onChange={e => setEditOverviewData({ ...editOverviewData, venue: e.target.value })} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">Start Date</label>
+                                    <input type="date" className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" value={editOverviewData.start_date} onChange={e => setEditOverviewData({ ...editOverviewData, start_date: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">End Date</label>
+                                    <input type="date" className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" value={editOverviewData.end_date} onChange={e => setEditOverviewData({ ...editOverviewData, end_date: e.target.value })} />
+                                </div>
+                            </div>
+                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold text-sm tracking-wide shadow-sm hover:bg-blue-700 transition">Save Overview</button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showTimelineModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[80]">
+                    <div className="bg-white p-6 rounded-xl w-[400px] shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg">Add Timeline Stage</h3>
+                            <button onClick={() => setShowTimelineModal(false)}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
+                        </div>
+                        <form onSubmit={handleAddTimeline} className="space-y-4">
+                            <input required placeholder="Stage/Phase Name (e.g. Media Preparation)" className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" value={newTimeline.title} onChange={e => setNewTimeline({ ...newTimeline, title: e.target.value })} />
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 mb-1 block">Scheduled Date</label>
+                                <input required type="date" className="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" value={newTimeline.date} onChange={e => setNewTimeline({ ...newTimeline, date: e.target.value })} />
+                            </div>
+                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold text-sm tracking-wide shadow-sm hover:bg-blue-700 transition">Add Stage</button>
                         </form>
                     </div>
                 </div>

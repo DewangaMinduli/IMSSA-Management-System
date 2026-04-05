@@ -31,8 +31,8 @@ router.patch('/oc/:eoId', eventController.updateOCMember);
 
 // Task routes
 router.post('/:id/tasks', eventController.addTask);
-router.patch('/tasks/:taskId', eventController.updateTask);
-router.delete('/tasks/:taskId', eventController.deleteTask);
+router.patch('/:id/tasks/:taskId', eventController.updateTaskStatus);
+router.delete('/:id/tasks/:taskId', eventController.deleteTask);
 router.patch('/tasks/:taskId/assignments/:assignmentId/status', eventController.updateTaskAssignmentStatus);
 
 // Volunteer routes
@@ -42,9 +42,13 @@ router.get('/my-tasks', eventController.getMyTasks);
 
 // Timeline
 router.post('/:id/timeline', eventController.addTimelineEvent);
+router.put('/:id/timeline/:timelineId', eventController.updateTimelineEvent);
+router.delete('/:id/timeline/:timelineId', eventController.deleteTimelineEvent);
 
 // Partnership routes
 router.post('/:id/partnerships', eventController.addPartnership);
+router.put('/:id/partnerships/:partnershipId', eventController.updatePartnership);
+router.delete('/:id/partnerships/:partnershipId', eventController.deletePartnership);
 router.get('/partnerships/archive', eventController.getPartnershipArchive);
 
 module.exports = router;

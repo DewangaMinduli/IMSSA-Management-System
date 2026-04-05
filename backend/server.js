@@ -13,6 +13,7 @@ const userRoutes = require('./routes/userRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const skillRoutes = require('./routes/skillRoutes');
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/skills', skillRoutes);
 
 // Test Route (To check if server is alive)
 app.get('/', (req, res) => {
