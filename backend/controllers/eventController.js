@@ -579,7 +579,7 @@ exports.getMyTasks = async (req, res) => {
         if (!user_id) return res.status(400).json({ message: 'user_id is required.' });
 
         const [tasks] = await db.execute(`
-            SELECT t.task_id as id, t.title, t.description as desc, t.deadline as due,
+            SELECT t.task_id as id, t.title, t.description as \`desc\`, t.deadline as due,
                    e.event_name as event, e.event_id,
                    ta.status, t.priority
             FROM task t
@@ -597,18 +597,30 @@ exports.getMyTasks = async (req, res) => {
 };
 
 // Get all volunteer opportunity tasks (for all dashboards)
+// Optional: ?exclude_user_id=N  → excludes tasks from events created by that user
 exports.getVolunteerOpportunities = async (req, res) => {
     try {
-        const [tasks] = await db.execute(`
-            SELECT t.task_id as id, t.title, t.description as desc, t.deadline as due,
+        const { exclude_user_id } = req.query;
+
+        let query = `
+            SELECT t.task_id as id, t.title, t.description as \`desc\`, t.deadline as due,
                    e.event_name as event, e.event_id,
                    t.priority
             FROM task t
             JOIN event e ON t.event_id = e.event_id
             WHERE t.is_volunteer_opportunity = 1
               AND t.status != 'Completed'
-            ORDER BY t.deadline ASC
-        `);
+        `;
+        const params = [];
+
+        if (exclude_user_id) {
+            query += ` AND e.created_by_user_id != ? `;
+            params.push(exclude_user_id);
+        }
+
+        query += ` ORDER BY t.deadline ASC`;
+
+        const [tasks] = await db.execute(query, params);
         res.json(tasks);
     } catch (err) {
         console.error("Error fetching volunteer opportunities:", err);
@@ -642,6 +654,85 @@ exports.volunteerForTask = async (req, res) => {
         res.status(201).json({ message: 'Successfully volunteered for task.' });
     } catch (err) {
         console.error("Error volunteering for task:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// ---------------------------------------------------------------------------------------------------
+// TASK DETAILS, SUBMISSIONS & COMMENTS
+// ---------------------------------------------------------------------------------------------------
+
+exports.getTaskAssignmentDetails = async (req, res) => {
+    try {
+        const { taskId, assignmentId } = req.params;
+        const [rows] = await db.execute(`
+            SELECT 
+                t.task_id as id, t.title, t.description as \`desc\`, t.deadline as due, t.status as task_status,
+                e.event_name, e.event_id,
+                ta.assignment_id, ta.status as assignment_status, ta.submission_text, ta.submission_file_url, ta.assigned_user_id
+            FROM task t
+            JOIN task_assignment ta ON t.task_id = ta.task_id
+            JOIN event e ON t.event_id = e.event_id
+            WHERE t.task_id = ? AND ta.assignment_id = ?
+        `, [taskId, assignmentId]);
+
+        if (rows.length === 0) return res.status(404).json({ message: 'Assignment not found' });
+        res.json(rows[0]);
+    } catch (err) {
+        console.error("Error fetching assignment details:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.submitTaskAssignment = async (req, res) => {
+    try {
+        const { taskId, assignmentId } = req.params;
+        const { submission_text } = req.body;
+        
+        await db.execute(`
+            UPDATE task_assignment 
+            SET submission_text = ?, status = 'Submitted' 
+            WHERE assignment_id = ? AND task_id = ?
+        `, [submission_text || null, assignmentId, taskId]);
+        
+        res.json({ message: 'Task submitted successfully' });
+    } catch (err) {
+        console.error("Error submitting task:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.getComments = async (req, res) => {
+    try {
+        const { assignmentId } = req.params;
+        const [rows] = await db.execute(`
+            SELECT tc.comment_id, tc.comment_text as text, tc.created_at, u.full_name as user, tc.user_id
+            FROM task_comment tc
+            JOIN user u ON tc.user_id = u.user_id
+            WHERE tc.assignment_id = ?
+            ORDER BY tc.created_at ASC
+        `, [assignmentId]);
+        res.json(rows);
+    } catch (err) {
+        console.error("Error fetching comments:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.addComment = async (req, res) => {
+    try {
+        const { assignmentId } = req.params;
+        const { user_id, text } = req.body;
+        
+        if (!user_id || !text) return res.status(400).json({ message: 'user_id and text are required.' });
+
+        const [result] = await db.execute(
+            \`INSERT INTO task_comment (assignment_id, user_id, comment_text) VALUES (?, ?, ?)\`,
+            [assignmentId, user_id, text]
+        );
+        res.status(201).json({ message: 'Comment added', comment_id: result.insertId });
+    } catch (err) {
+        console.error("Error adding comment:", err);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -773,3 +864,80 @@ exports.deletePartnership = async (req, res) => {
     }
 };
 
+// ---------------------------------------------------------------------------------------------------
+// TASKS TO APPROVE
+// ---------------------------------------------------------------------------------------------------
+
+// GET /api/events/tasks-to-approve?user_id={uid}&role={oc|exec}
+// - role=oc  : tasks from events where user is in event_coordinator, status Submitted/Completed, not self-assigned
+// - role=exec: ALL event tasks, status Submitted/Completed, not self-assigned
+exports.getTasksToApprove = async (req, res) => {
+    try {
+        const { user_id, role } = req.query;
+        if (!user_id) return res.status(400).json({ message: 'user_id is required.' });
+
+        let query;
+        let params;
+
+        if (role === 'oc') {
+            // Only tasks from events this user is an OC member of
+            query = `
+                SELECT
+                    t.task_id as id,
+                    t.task_id,
+                    t.title,
+                    t.description as \`desc\`,
+                    t.deadline as due,
+                    t.status as task_status,
+                    e.event_name as event,
+                    e.event_id,
+                    ta.assignment_id,
+                    ta.status as assignment_status,
+                    u.full_name as assigned_to,
+                    u.student_number as assigned_student_no
+                FROM task t
+                JOIN event e ON t.event_id = e.event_id
+                JOIN task_assignment ta ON t.task_id = ta.task_id
+                JOIN user u ON ta.assigned_user_id = u.user_id
+                WHERE t.event_id IN (
+                    SELECT event_id FROM event_coordinator WHERE user_id = ?
+                )
+                AND ta.status IN ('Submitted', 'Completed')
+                AND ta.assigned_user_id != ?
+                ORDER BY t.deadline ASC
+            `;
+            params = [user_id, user_id];
+        } else {
+            // Exec: all events, all tasks
+            query = `
+                SELECT
+                    t.task_id as id,
+                    t.task_id,
+                    t.title,
+                    t.description as \`desc\`,
+                    t.deadline as due,
+                    t.status as task_status,
+                    e.event_name as event,
+                    e.event_id,
+                    ta.assignment_id,
+                    ta.status as assignment_status,
+                    u.full_name as assigned_to,
+                    u.student_number as assigned_student_no
+                FROM task t
+                JOIN event e ON t.event_id = e.event_id
+                JOIN task_assignment ta ON t.task_id = ta.task_id
+                JOIN user u ON ta.assigned_user_id = u.user_id
+                WHERE ta.status IN ('Submitted', 'Completed')
+                AND ta.assigned_user_id != ?
+                ORDER BY t.deadline ASC
+            `;
+            params = [user_id];
+        }
+
+        const [tasks] = await db.execute(query, params);
+        res.json(tasks);
+    } catch (err) {
+        console.error("Error fetching tasks to approve:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};

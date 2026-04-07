@@ -25,10 +25,10 @@ const JuniorTreasurerDashboard = () => {
         events: []
     });
 
-    // Placeholder — tasks hold until event system is live
-    const [tasksToApprove] = useState([]);
-    const [myTasks] = useState([]);
-    const [volunteerOps] = useState([]);
+    // Task & Volunteer state
+    const [tasksToApprove, setTasksToApprove] = useState([]);
+    const [myTasks, setMyTasks] = useState([]);
+    const [volunteerOps, setVolunteerOps] = useState([]);
 
     // Form State
     const [form, setForm] = useState({
@@ -44,10 +44,16 @@ const JuniorTreasurerDashboard = () => {
     useEffect(() => {
         const init = async () => {
             try {
-                const [finRes, evRes] = await Promise.all([
+                const uid = user?.id || user?.user_id;
+
+                const [finRes, evRes, tasksRes, volRes, approveRes] = await Promise.all([
                     fetch('http://localhost:5000/api/finance/dashboard-summary'),
-                    fetch('http://localhost:5000/api/events')
+                    fetch('http://localhost:5000/api/events'),
+                    uid ? fetch(`http://localhost:5000/api/events/my-tasks?user_id=${uid}`) : Promise.resolve(null),
+                    uid ? fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}`) : Promise.resolve(null),
+                    uid ? fetch(`http://localhost:5000/api/events/tasks-to-approve?user_id=${uid}&role=exec`) : Promise.resolve(null)
                 ]);
+
                 if (finRes.ok) {
                     const json = await finRes.json();
                     setData(json);
@@ -57,6 +63,9 @@ const JuniorTreasurerDashboard = () => {
                     const evData = await evRes.json();
                     setData(prev => ({ ...prev, events: evData }));
                 }
+                if (tasksRes && tasksRes.ok) setMyTasks(await tasksRes.json());
+                if (volRes && volRes.ok) setVolunteerOps(await volRes.json());
+                if (approveRes && approveRes.ok) setTasksToApprove(await approveRes.json());
             } catch (err) {
                 console.error('Failed to fetch dashboard data', err);
             } finally {
@@ -92,9 +101,44 @@ const JuniorTreasurerDashboard = () => {
         }
     };
 
-    const handleApply = (task) => {
-        alert(`Applied for: ${task.title}`);
+    const handleApply = async (task) => {
+        try {
+            const uid = user?.id || user?.user_id;
+            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/volunteer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: uid })
+            });
+            const data = await res.json();
+            alert(res.ok ? `Volunteered for: ${task.title}!` : data.message);
+            
+            if (res.ok) {
+                setVolunteerOps(prev => prev.filter(op => op.id !== task.id));
+                setMyTasks(prev => [...prev, { ...task, status: 'Assigned' }]);
+            }
+        } catch (err) {
+            alert('Failed to volunteer. Try again.');
+        }
         setSelectedVolunteerTask(null);
+    };
+
+    const handleApproveTask = async (task) => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/assignments/${task.assignment_id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'Approved' })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`Approved task: ${task.title}`);
+                setTasksToApprove(prev => prev.filter(t => t.assignment_id !== task.assignment_id));
+            } else {
+                alert(data.message);
+            }
+        } catch (err) {
+            alert('Failed to approve task.');
+        }
     };
 
     const handleGenerateReport = () => {

@@ -1,0 +1,42 @@
+CREATE TABLE `task_assignment` (
+  `assignment_id` int NOT NULL AUTO_INCREMENT,
+  `task_id` int NOT NULL,
+  `assigned_user_id` int NOT NULL,
+  `status` enum('Assigned','In_Progress','Submitted','Verified','Rejected','Applied') DEFAULT 'Assigned',
+  `submission_text` text,
+  `submission_file_url` varchar(255) DEFAULT NULL,
+  `verified_by_user_id` int DEFAULT NULL,
+  PRIMARY KEY (`assignment_id`),
+  KEY `fk_ta_task` (`task_id`),
+  KEY `fk_ta_user` (`assigned_user_id`),
+  KEY `fk_ta_verifier` (`verified_by_user_id`),
+  CONSTRAINT `fk_ta_task` FOREIGN KEY (`task_id`) REFERENCES `task` (`task_id`),
+  CONSTRAINT `fk_ta_user` FOREIGN KEY (`assigned_user_id`) REFERENCES `user` (`user_id`),
+  CONSTRAINT `fk_ta_verifier` FOREIGN KEY (`verified_by_user_id`) REFERENCES `user` (`user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+CREATE TABLE `task_comment` (
+  `comment_id` int NOT NULL AUTO_INCREMENT,
+  `assignment_id` int NOT NULL,
+  `user_id` int NOT NULL,
+  `comment_text` text NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`comment_id`),
+  KEY `fk_tc_assign` (`assignment_id`),
+  KEY `fk_tc_user` (`user_id`),
+  CONSTRAINT `fk_tc_assign` FOREIGN KEY (`assignment_id`) REFERENCES `task_assignment` (`assignment_id`),
+  CONSTRAINT `fk_tc_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+CREATE TABLE `task_skill` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `task_id` int NOT NULL,
+  `skill_tag_id` int NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `task_id` (`task_id`,`skill_tag_id`),
+  KEY `skill_tag_id` (`skill_tag_id`),
+  CONSTRAINT `task_skill_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `task` (`task_id`) ON DELETE CASCADE,
+  CONSTRAINT `task_skill_ibfk_2` FOREIGN KEY (`skill_tag_id`) REFERENCES `skill_tag` (`tag_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+
+No member_skill

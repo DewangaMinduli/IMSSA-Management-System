@@ -41,6 +41,9 @@ router.get('/volunteer-opportunities', eventController.getVolunteerOpportunities
 router.post('/tasks/:taskId/volunteer', eventController.volunteerForTask);
 router.get('/my-tasks', eventController.getMyTasks);
 
+// Tasks to approve (OC / Exec)
+router.get('/tasks-to-approve', eventController.getTasksToApprove);
+
 // Timeline
 router.post('/:id/timeline', eventController.addTimelineEvent);
 router.put('/:id/timeline/:timelineId', eventController.updateTimelineEvent);

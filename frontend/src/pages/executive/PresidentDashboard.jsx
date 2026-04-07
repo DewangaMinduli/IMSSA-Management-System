@@ -15,29 +15,80 @@ const PresidentDashboard = () => {
     const [events, setEvents] = useState([]);
     const [loadingEvents, setLoadingEvents] = useState(true);
 
-    // Fetch live events from DB
+    const [tasksToApprove, setTasksToApprove] = useState([]);
+    const [myTasks, setMyTasks] = useState([]);
+    const [volunteerOps, setVolunteerOps] = useState([]);
+
+    // Fetch initial data
     useEffect(() => {
-        const fetchEvents = async () => {
+        const fetchData = async () => {
+            const uid = user?.id || user?.user_id;
+            if (!uid) return;
+            
             try {
-                const res = await fetch('http://localhost:5000/api/events');
-                if (res.ok) setEvents(await res.json());
+                // Fetch Events
+                const resEvents = await fetch('http://localhost:5000/api/events');
+                if (resEvents.ok) setEvents(await resEvents.json());
+
+                // Fetch My Tasks
+                const resMyTasks = await fetch(`http://localhost:5000/api/events/my-tasks?user_id=${uid}`);
+                if (resMyTasks.ok) setMyTasks(await resMyTasks.json());
+
+                // Fetch Volunteer Opportunities (exclude own events)
+                const resVolOps = await fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}`);
+                if (resVolOps.ok) setVolunteerOps(await resVolOps.json());
+
+                // Fetch Tasks to Approve (scoped to Exec - system wide)
+                const resApprove = await fetch(`http://localhost:5000/api/events/tasks-to-approve?user_id=${uid}&role=exec`);
+                if (resApprove.ok) setTasksToApprove(await resApprove.json());
+                
             } catch (err) {
-                console.error('Events fetch error', err);
+                console.error('Data fetch error', err);
             } finally {
                 setLoadingEvents(false);
             }
         };
-        fetchEvents();
-    }, []);
+        fetchData();
+    }, [user]);
 
-    // --- MOCK until task APIs exist ---
-    const [tasksToApprove] = useState([]);
-    const [myTasks] = useState([]);
-    const [volunteerOps] = useState([]);
-
-    const handleApply = (task) => {
-        alert(`Successfully applied for: ${task.title}`);
+    const handleApplyVolunteer = async (task) => {
+        try {
+            const uid = user?.id || user?.user_id;
+            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/volunteer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: uid })
+            });
+            const data = await res.json();
+            alert(res.ok ? `Volunteered for: ${task.title}!` : data.message);
+            
+            if (res.ok) {
+                setVolunteerOps(prev => prev.filter(op => op.id !== task.id));
+                setMyTasks(prev => [...prev, { ...task, status: 'Assigned' }]);
+            }
+        } catch (err) {
+            alert('Failed to volunteer. Try again.');
+        }
         setSelectedVolunteerTask(null);
+    };
+
+    const handleApproveTask = async (task) => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/assignments/${task.assignment_id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'Approved' })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`Approved task: ${task.title}`);
+                setTasksToApprove(prev => prev.filter(t => t.assignment_id !== task.assignment_id));
+            } else {
+                alert(data.message);
+            }
+        } catch (err) {
+            alert('Failed to approve task.');
+        }
     };
 
     const ScrollSection = ({ id, title, children }) => (
@@ -126,43 +177,50 @@ const PresidentDashboard = () => {
                     </button>
                 </div>
 
-                {/* TASKS TO APPROVE */}
                 <ScrollSection id="approve-tasks" title="Tasks to Approve">
                     {tasksToApprove.length === 0 ? (
                         <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
                             No tasks requiring approval.
                         </div>
                     ) : tasksToApprove.map(task => (
-                        <div key={task.id} onClick={() => navigate(`/tasks/${task.id}`)} className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-shadow">
+                        <div key={task.assignment_id} className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start">
                             <div>
-                                <h4 className="font-bold text-gray-800 text-sm mb-1">{task.title}</h4>
-                                <p className="text-xs text-gray-500 line-clamp-2 mb-4">{task.desc}</p>
-                                <div className="space-y-2 text-xs text-gray-500 mb-4">
-                                    <p>Due: {task.due}</p>
-                                    <p>Assigned to: <span className="font-semibold text-gray-700">{task.assignedTo}</span></p>
-                                    <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold">Event: {task.event}</span>
+                                <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-bold text-gray-800 text-sm">{task.title}</h4>
+                                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${task.assignment_status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        {task.assignment_status}
+                                    </span>
                                 </div>
+                                <p className="text-xs text-gray-500 mb-4 line-clamp-2">{task.desc}</p>
+                                <div className="text-xs text-gray-500 mb-2"><strong>Event:</strong> {task.event}</div>
+                                <div className="text-xs text-gray-500 mb-4"><strong>By:</strong> {task.assigned_to}</div>
                             </div>
                             <div className="flex justify-end pt-3 border-t border-gray-50">
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition-colors">Review</button>
+                                <button 
+                                    onClick={() => handleApproveTask(task)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                                >
+                                    Approve
+                                </button>
                             </div>
                         </div>
                     ))}
                 </ScrollSection>
 
-                {/* MY TASKS */}
                 <ScrollSection id="my-tasks" title="My Tasks">
                     {myTasks.length === 0 ? (
                         <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
                             No tasks assigned.
                         </div>
                     ) : myTasks.map(task => (
-                        <div key={task.id} onClick={() => navigate(`/exec/tasks/${task.id}`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start">
-                            <h4 className="font-bold text-gray-800 text-sm mb-2">{task.title}</h4>
+                        <div key={task.id} onClick={() => navigate(`/exec/tasks/${task.id}`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start group">
+                            <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-grow">{task.desc}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {task.due}</div>
-                            <div className="mb-4"><span className="px-2 py-1 bg-teal-100 text-teal-800 rounded text-[10px] font-bold">Event: {task.event}</span></div>
-                            <div className="pt-3 border-t border-gray-50 text-[10px] text-gray-400">Assigned to: You</div>
+                            <div className="flex justify-between items-center">
+                                <span className="px-2 py-1 rounded text-[10px] font-bold bg-teal-100 text-teal-800">Event: {task.event}</span>
+                                <span className="text-[10px] text-gray-400 font-semibold">{task.status}</span>
+                            </div>
                         </div>
                     ))}
                 </ScrollSection>
@@ -237,7 +295,7 @@ const PresidentDashboard = () => {
                 isOpen={!!selectedVolunteerTask}
                 task={selectedVolunteerTask}
                 onClose={() => setSelectedVolunteerTask(null)}
-                onApply={handleApply}
+                onApply={handleApplyVolunteer}
             />
         </div>
     );

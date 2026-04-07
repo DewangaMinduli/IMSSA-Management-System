@@ -41,7 +41,7 @@ const MemberDashboard = () => {
         const uid = user.user_id || user.id;
 
         // Fetch Volunteer Opportunities
-        fetch('http://localhost:5000/api/events/volunteer-opportunities')
+        fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}`)
             .then(r => r.ok ? r.json() : [])
             .then(setVolunteerOps)
             .catch(() => {});
@@ -58,10 +58,15 @@ const MemberDashboard = () => {
             const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/volunteer`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: user?.id })
+                body: JSON.stringify({ user_id: user?.id || user?.user_id })
             });
             const data = await res.json();
             alert(res.ok ? `Volunteered for: ${task.title}!` : data.message);
+            
+            if (res.ok) {
+                setVolunteerOps(prev => prev.filter(op => op.id !== task.id));
+                setMyTasks(prev => [...prev, { ...task, status: 'Assigned' }]);
+            }
         } catch (err) {
             alert('Failed to volunteer. Try again.');
         }

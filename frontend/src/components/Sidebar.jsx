@@ -120,9 +120,9 @@ const Sidebar = () => {
     },
     {
       name: 'Volunteer Opportunities',
-      path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#events' : '/member/dashboard',
+      path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#volunteer' : '/member/dashboard#volunteer',
       id: 'volunteer',
-      show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer' && user.role_name !== 'Organizing_Committee' && user.role_name !== 'Organizing Committee'
+      show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer'
     },
     {
       name: 'Events',

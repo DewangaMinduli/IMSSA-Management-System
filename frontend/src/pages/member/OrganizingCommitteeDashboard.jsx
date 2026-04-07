@@ -6,51 +6,120 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import UserDropdown from '../../components/UserDropdown';
+import VolunteerTaskModal from '../../components/VolunteerTaskModal';
 
 const OrganizingCommitteeDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [showNotifications, setShowNotifications] = useState(false);
+    
+    // Data states
     const [events, setEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]);
     const [loadingEvents, setLoadingEvents] = useState(true);
+    const [myTasks, setMyTasks] = useState([]);
+    const [volunteerOps, setVolunteerOps] = useState([]);
+    const [tasksToApprove, setTasksToApprove] = useState([]);
+    
+    // Modal states
+    const [selectedVolunteerTask, setSelectedVolunteerTask] = useState(null);
 
-    // Fetch live events from DB
+    // Fetch initial data
     useEffect(() => {
-        const fetchEvents = async () => {
+        const fetchData = async () => {
             const uid = user?.id || user?.user_id;
             if (!uid) return;
+            
             try {
-                const resMy = await fetch(`http://localhost:5000/api/events?user_id=${uid}`);
-                const resAll = await fetch('http://localhost:5000/api/events');
+                // Fetch Events
+                const resMyEvents = await fetch(`http://localhost:5000/api/events?user_id=${uid}`);
+                const resAllEvents = await fetch('http://localhost:5000/api/events');
+                
+                if (resMyEvents.ok) setEvents(await resMyEvents.json());
+                if (resAllEvents.ok) setAllEvents(await resAllEvents.json());
 
-                if (resMy.ok) {
-                    const data = await resMy.json();
-                    setEvents(Array.isArray(data) ? data : []);
-                }
-                if (resAll.ok) {
-                    const data = await resAll.json();
-                    setAllEvents(Array.isArray(data) ? data : []);
-                }
+                // Fetch My Tasks
+                const resMyTasks = await fetch(`http://localhost:5000/api/events/my-tasks?user_id=${uid}`);
+                if (resMyTasks.ok) setMyTasks(await resMyTasks.json());
+
+                // Fetch Volunteer Opportunities (exclude own events)
+                const resVolOps = await fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}`);
+                if (resVolOps.ok) setVolunteerOps(await resVolOps.json());
+
+                // Fetch Tasks to Approve (scoped to OC)
+                const resApprove = await fetch(`http://localhost:5000/api/events/tasks-to-approve?user_id=${uid}&role=oc`);
+                if (resApprove.ok) setTasksToApprove(await resApprove.json());
+                
             } catch (err) {
-                console.error('Events fetch error', err);
+                console.error('Data fetch error', err);
             } finally {
                 setLoadingEvents(false);
             }
         };
-        fetchEvents();
-    }, [user?.id, user?.user_id]);
+        fetchData();
+    }, [user]);
 
     const otherEvents = allEvents.filter(e => !events.find(me => me.event_id === e.event_id));
+    const notifications = []; // Pending Phase 2
 
-    // Placeholder until OC-specific task APIs exist
-    const myTasks = [];
-    const tasksToApprove = [];
-    const notifications = [];
+    // Apply for volunteer opportunity
+    const handleApplyVolunteer = async (task) => {
+        try {
+            const uid = user?.id || user?.user_id;
+            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/volunteer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: uid })
+            });
+            const data = await res.json();
+            alert(res.ok ? `Volunteered for: ${task.title}!` : data.message);
+            
+            // Remove from list immediately
+            if (res.ok) {
+                setVolunteerOps(prev => prev.filter(op => op.id !== task.id));
+                setMyTasks(prev => [...prev, { ...task, status: 'Assigned' }]);
+            }
+        } catch (err) {
+            alert('Failed to volunteer. Try again.');
+        }
+        setSelectedVolunteerTask(null);
+    };
+
+    // Approve task submission
+    const handleApproveTask = async (task) => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/assignments/${task.assignment_id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'Approved' })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`Approved task: ${task.title}`);
+                setTasksToApprove(prev => prev.filter(t => t.assignment_id !== task.assignment_id));
+            } else {
+                alert(data.message);
+            }
+        } catch (err) {
+            alert('Failed to approve task.');
+        }
+    };
+
+    // Reusable Horizontal Scroll Section Component
+    const ScrollSection = ({ id, title, children }) => (
+        <div id={id} className="mb-10 scroll-mt-24">
+            <div className="flex justify-between items-center mb-4 px-1">
+                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
+                {children}
+            </div>
+        </div>
+    );
 
     return (
         <div className="pb-10 bg-gray-50 min-h-screen font-sans">
-
             {/* HEADER */}
             <div className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-6 py-3 flex justify-between items-center">
                 <div className="flex items-center gap-3">
@@ -88,7 +157,6 @@ const OrganizingCommitteeDashboard = () => {
             </div>
 
             <div className="max-w-7xl mx-auto px-6 mt-8">
-
                 {/* PAGE TITLE & ACTION */}
                 <div className="flex justify-between items-center mb-10">
                     <div className="flex items-center gap-4">
@@ -134,8 +202,8 @@ const OrganizingCommitteeDashboard = () => {
                     </button>
                 </div>
 
-                {/* MY EVENTS (Live events from DB) */}
-                <h3 id="my-events" className="text-lg font-bold text-gray-900 mb-4 pt-4">My Events</h3>
+                {/* MY EVENTS */}
+                <h3 id="my-events" className="text-lg font-bold text-gray-900 mb-4 pt-4 scroll-mt-24">My Events</h3>
                 {loadingEvents ? (
                     <p className="text-gray-400 text-sm mb-10">Loading events...</p>
                 ) : events.length === 0 ? (
@@ -172,64 +240,94 @@ const OrganizingCommitteeDashboard = () => {
                     </div>
                 )}
 
-                {/* MY TASKS */}
-                <h3 id="tasks" className="text-lg font-bold text-gray-900 mb-4">My Tasks</h3>
-                {myTasks.length === 0 ? (
-                    <div className="bg-white rounded-xl p-8 border border-dashed border-gray-200 text-center text-gray-400 text-sm mb-10">
-                        No tasks assigned yet.
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                        {myTasks.map(task => (
-                            <div key={task.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between h-56">
-                                <div>
-                                    <h4 className="font-bold text-gray-800 text-sm mb-2">{task.title}</h4>
-                                    <p className="text-xs text-gray-500 line-clamp-3 mb-4">{task.desc}</p>
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-2"><Clock size={14} /> Due: {task.due}</div>
-                                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-teal-100 text-teal-800">Event: {task.event}</span>
-                                    <div className="mt-3 pt-3 border-t border-gray-50 text-[10px] text-gray-400">Assigned to: You</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
                 {/* TASKS TO APPROVE */}
-                <h3 id="tasks-to-approve" className="text-lg font-bold text-gray-900 mb-4">Tasks to Approve</h3>
-                {tasksToApprove.length === 0 ? (
-                    <div className="bg-white rounded-xl p-8 border border-dashed border-gray-200 text-center text-gray-400 text-sm mb-10">
-                        No tasks pending approval.
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                        {tasksToApprove.map(task => (
-                            <div key={task.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-                                <h4 className="font-bold text-gray-800 text-sm mb-2">{task.title}</h4>
-                                <p className="text-xs text-gray-500 mb-4">{task.desc}</p>
-                                <div className="flex justify-between items-center">
-                                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-gray-100 text-gray-600">Event: {task.event}</span>
-                                    <button className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700">Approve</button>
+                <ScrollSection id="tasks-to-approve" title="Tasks to Approve">
+                    {tasksToApprove.length === 0 ? (
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
+                            No tasks pending approval.
+                        </div>
+                    ) : (
+                        tasksToApprove.map(task => (
+                            <div key={task.assignment_id} className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start">
+                                <div>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-gray-800 text-sm">{task.title}</h4>
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${task.assignment_status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                            {task.assignment_status}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-4 line-clamp-2">{task.desc}</p>
+                                    <div className="text-xs text-gray-500 mb-2"><strong>Event:</strong> {task.event}</div>
+                                    <div className="text-xs text-gray-500 mb-4"><strong>By:</strong> {task.assigned_to}</div>
+                                </div>
+                                <div className="flex justify-end pt-3 border-t border-gray-50">
+                                    <button 
+                                        onClick={() => handleApproveTask(task)}
+                                        className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700 transition"
+                                    >
+                                        Approve
+                                    </button>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        ))
+                    )}
+                </ScrollSection>
+
+                {/* MY TASKS */}
+                <ScrollSection id="tasks" title="My Tasks">
+                    {myTasks.length === 0 ? (
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
+                            No tasks assigned yet.
+                        </div>
+                    ) : (
+                        myTasks.map(task => (
+                            <div key={task.id} onClick={() => navigate(`/member/tasks/${task.id}`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition-shadow cursor-pointer group snap-start">
+                                <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
+                                <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2 flex-grow">{task.desc}</p>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {task.due}</div>
+                                <div className="flex justify-between items-center">
+                                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-teal-100 text-teal-800">Event: {task.event}</span>
+                                    <span className="text-[10px] text-gray-400 font-semibold">{task.status}</span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </ScrollSection>
+
+                {/* VOLUNTEER OPPORTUNITIES */}
+                <ScrollSection id="volunteer" title="Volunteer Opportunities">
+                    {volunteerOps.length === 0 ? (
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
+                            No volunteer opportunities at this time.
+                        </div>
+                    ) : volunteerOps.map(op => (
+                        <div
+                            key={op.id}
+                            onClick={() => setSelectedVolunteerTask(op)}
+                            className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition-shadow snap-start cursor-pointer group"
+                        >
+                            <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{op.title}</h4>
+                            <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2">{op.desc}</p>
+                            <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
+                                <span className="text-xs font-medium">Click to View</span>
+                                <ChevronRight size={14} />
+                            </div>
+                        </div>
+                    ))}
+                </ScrollSection>
 
                 {/* OTHER EVENTS */}
-                <h3 id="events" className="text-lg font-bold text-gray-900 mb-4 pt-4">Events</h3>
-                {otherEvents.length === 0 ? (
-                    <div className="bg-white rounded-xl p-8 border border-dashed border-gray-200 text-center text-gray-400 text-sm mb-10">
-                        No other ongoing events.
-                    </div>
-                ) : (
-                    <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x mb-10">
-                        {otherEvents.map(event => (
+                <ScrollSection id="events" title="Events">
+                    {otherEvents.length === 0 ? (
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
+                            No other ongoing events.
+                        </div>
+                    ) : (
+                        otherEvents.map(event => (
                             <div
                                 key={event.event_id}
                                 onClick={() => navigate(`/events/${event.event_id}`)}
-                                className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start"
+                                className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start group"
                             >
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
@@ -237,18 +335,28 @@ const OrganizingCommitteeDashboard = () => {
                                     </div>
                                     <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
                                 </div>
-                                <div className="space-y-3 mb-4">
+                                <div className="space-y-3 mb-6">
                                     <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                    <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
+                                    <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Total Tasks</span></div>
                                 </div>
-                                <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
-                                    <span>View Overview</span><ArrowRight size={14} />
+                                <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
+                                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                                    <ChevronRight size={14} className="text-gray-300" />
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        ))
+                    )}
+                </ScrollSection>
 
             </div>
+            
+            <VolunteerTaskModal
+                isOpen={!!selectedVolunteerTask}
+                task={selectedVolunteerTask}
+                onClose={() => setSelectedVolunteerTask(null)}
+                onApply={handleApplyVolunteer}
+            />
         </div>
     );
 };
