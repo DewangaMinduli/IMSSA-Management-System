@@ -31,6 +31,7 @@ router.patch('/oc/:eoId', eventController.updateOCMember);
 
 // Task routes
 router.post('/:id/tasks', eventController.addTask);
+router.put('/:id/tasks/:taskId', eventController.updateTask);
 router.patch('/:id/tasks/:taskId', eventController.updateTaskStatus);
 router.delete('/:id/tasks/:taskId', eventController.deleteTask);
 router.patch('/tasks/:taskId/assignments/:assignmentId/status', eventController.updateTaskAssignmentStatus);

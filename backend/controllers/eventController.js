@@ -44,7 +44,8 @@ exports.getEventDetails = async (req, res) => {
         const [tasks] = await db.execute(`
             SELECT t.task_id as id, t.title, t.description, t.deadline, t.status,
                    t.is_volunteer_opportunity, t.priority, t.proof_type,
-                   GROUP_CONCAT(u.full_name SEPARATOR ', ') as assignedTo
+                   GROUP_CONCAT(u.full_name SEPARATOR ', ') as assignedTo,
+                   GROUP_CONCAT(u.student_number SEPARATOR ', ') as assignedStudentNumbers
             FROM task t
             LEFT JOIN task_assignment ta ON t.task_id = ta.task_id
             LEFT JOIN user u ON ta.assigned_user_id = u.user_id
@@ -52,6 +53,31 @@ exports.getEventDetails = async (req, res) => {
             GROUP BY t.task_id
             ORDER BY t.deadline ASC
         `, [eventId]);
+
+        // Fetch skills for tasks
+        if (tasks.length > 0) {
+            const taskIds = tasks.map(t => t.id);
+            const placeholders = taskIds.map(() => '?').join(',');
+            const [taskSkills] = await db.execute(`
+                SELECT task_id, skill_tag_id 
+                FROM task_skill 
+                WHERE task_id IN (${placeholders})
+            `, taskIds);
+
+            // Group skills by task_id
+            const skillsByTask = {};
+            taskSkills.forEach(ts => {
+                if (!skillsByTask[ts.task_id]) {
+                    skillsByTask[ts.task_id] = [];
+                }
+                skillsByTask[ts.task_id].push(ts.skill_tag_id);
+            });
+
+            // Attach to tasks
+            tasks.forEach(task => {
+                task.skills = skillsByTask[task.id] || [];
+            });
+        }
 
         // 3. Get Event OC details
         const [ocMembers] = await db.execute(`
@@ -401,21 +427,73 @@ exports.addTask = async (req, res) => {
 
 // Update a task (title, description, deadline, priority)
 exports.updateTask = async (req, res) => {
+    let connection;
     try {
         const { taskId } = req.params;
-        const { title, description, deadline, priority, status, is_volunteer_opportunity } = req.body;
+        const { title, description, deadline, priority, status, is_volunteer_opportunity, assignedTo, proof_type, skills } = req.body;
 
         if (!title) return res.status(400).json({ message: 'Title is required.' });
 
-        await db.execute(
-            `UPDATE task SET title = ?, description = ?, deadline = ?, priority = ?, status = ?, is_volunteer_opportunity = ? WHERE task_id = ?`,
-            [title, description || null, deadline || null, priority || 'Medium', status || 'Pending', is_volunteer_opportunity ? 1 : 0, taskId]
+        const isVolunteer = is_volunteer_opportunity ? 1 : 0;
+        const pType = proof_type || 'None';
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        await connection.execute(
+            `UPDATE task SET title = ?, description = ?, deadline = ?, priority = ?, status = ?, is_volunteer_opportunity = ?, proof_type = ? WHERE task_id = ?`,
+            [title, description || null, deadline || null, priority || 'Medium', status || 'Pending', isVolunteer, pType, taskId]
         );
 
+        if (!isVolunteer && assignedTo !== undefined) {
+            await connection.execute(`DELETE FROM task_assignment WHERE task_id = ?`, [taskId]);
+            let assignees = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+            for (const assignee of assignees) {
+                if (!assignee) continue;
+                let userId = null;
+                const trimmed = String(assignee).trim();
+                
+                const [users] = await connection.execute(
+                    `SELECT user_id FROM user WHERE student_number = ? LIMIT 1`,
+                    [trimmed]
+                );
+                
+                if (users.length > 0) {
+                    userId = users[0].user_id;
+                } else if (/^\d+$/.test(trimmed)) {
+                    userId = parseInt(trimmed);
+                }
+
+                if (userId) {
+                    await connection.execute(
+                        `INSERT INTO task_assignment (task_id, assigned_user_id, status) VALUES (?, ?, 'Assigned')`,
+                        [taskId, userId]
+                    );
+                }
+            }
+        }
+
+        if (skills !== undefined) {
+            await connection.execute(`DELETE FROM task_skill WHERE task_id = ?`, [taskId]);
+            let skillList = Array.isArray(skills) ? skills : [skills];
+            for (const skillId of skillList) {
+                if (skillId) {
+                    await connection.execute(
+                         `INSERT INTO task_skill (task_id, skill_tag_id) VALUES (?, ?)`,
+                         [taskId, parseInt(skillId)]
+                    );
+                }
+            }
+        }
+
+        await connection.commit();
         res.json({ message: 'Task updated successfully' });
     } catch (err) {
+        if (connection) await connection.rollback();
         console.error("Error updating task:", err);
         res.status(500).json({ message: 'Server Error' });
+    } finally {
+        if (connection) connection.release();
     }
 };
 

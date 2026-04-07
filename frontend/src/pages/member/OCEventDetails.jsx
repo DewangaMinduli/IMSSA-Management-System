@@ -29,6 +29,7 @@ const OCEventDetails = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const [showTaskModal, setShowTaskModal] = useState(false);
+    const [editTaskId, setEditTaskId] = useState(null);
     const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
     const [taskAssignInputValue, setTaskAssignInputValue] = useState('');
 
@@ -39,7 +40,9 @@ const OCEventDetails = () => {
     const [showSuggestions, setShowSuggestions] = useState(false);
 
     // PARTNERSHIPS STATE
-    const [partnerships, setPartnerships] = useState([]);
+    const [partnerships, setPartnerships] = useState([]); // Kept for modal inputs or we can just use newPartner 
+    // Actually we will map directly over data?.partnerships
+
     const [showPartnerModal, setShowPartnerModal] = useState(false);
     const [newPartner, setNewPartner] = useState({
         company_name: '',
@@ -83,22 +86,40 @@ const OCEventDetails = () => {
         e.preventDefault();
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(newTask)
-            });
-            if (res.ok) {
-                setShowTaskModal(false);
-                setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
-                setTaskAssignInputValue('');
-                fetchEventDetails();
+            if (editTaskId) {
+                const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks/${editTaskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(newTask)
+                });
+                if (res.ok) {
+                    setShowTaskModal(false);
+                    setEditTaskId(null);
+                    setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
+                    setTaskAssignInputValue('');
+                    fetchEventDetails();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'Error updating task');
+                }
             } else {
-                const data = await res.json();
-                alert(data.message || 'Error adding task');
+                const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(newTask)
+                });
+                if (res.ok) {
+                    setShowTaskModal(false);
+                    setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
+                    setTaskAssignInputValue('');
+                    fetchEventDetails();
+                } else {
+                    const data = await res.json();
+                    alert(data.message || 'Error adding task');
+                }
             }
         } catch (err) {
-            console.error('Error adding task', err);
+            console.error('Error adding/updating task', err);
         }
     };
 
@@ -321,7 +342,7 @@ const OCEventDetails = () => {
     if (loading) return <div className="p-8 max-w-7xl mx-auto flex justify-center items-center h-48"><p className="text-gray-500 font-medium animate-pulse">Loading Event Details...</p></div>;
     if (!data || !data.event) return <div className="p-8 text-center mt-10"><h2 className="text-xl font-bold">Event Not Found</h2></div>;
 
-    const { event, tasks, committee: ocMembers, timeline } = data;
+    const { event, tasks, committee: ocMembers, timeline, partnerships: dbPartnerships = [] } = data;
 
     // TAB RENDER FUNCTIONS
     const renderOverview = () => (
@@ -407,15 +428,16 @@ const OCEventDetails = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col gap-1">
-                                        <span className="text-gray-900 font-medium">
-                                            {task.assignedTo ? (
-                                                <span className="text-indigo-600 italic">Assignees: <span className="text-gray-700 font-bold not-italic">{task.assignedTo}</span></span>
-                                            ) : (
-                                                <span className={`${task.is_volunteer_opportunity ? 'text-purple-500 font-semibold italic' : 'text-orange-500 font-bold underline'}`}>
-                                                    {task.is_volunteer_opportunity ? 'Volunteer Needed' : 'Requires Appointment'}
-                                                </span>
-                                            )}
-                                        </span>
+                                        {task.is_volunteer_opportunity ? (
+                                            <span className="text-purple-500 font-semibold italic">Open for Volunteer</span>
+                                        ) : task.assignedTo ? (
+                                            <div className="flex flex-col">
+                                                <span className="text-gray-900 font-bold">{task.assignedTo}</span>
+                                                <span className="text-gray-500 text-xs">{task.assignedStudentNumbers}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 italic">Unassigned</span>
+                                        )}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-gray-500">{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'None'}</td>
@@ -445,6 +467,27 @@ const OCEventDetails = () => {
                                             <option value="Declined">Declined</option>
                                             <option value="Cancelled">Cancelled</option>
                                         </select>
+                                        <button 
+                                            onClick={() => {
+                                                setEditTaskId(task.id);
+                                                setNewTask({
+                                                    title: task.title || '',
+                                                    description: task.description || '',
+                                                    priority: task.priority || 'Medium',
+                                                    deadline: task.deadline ? task.deadline.split('T')[0] : '',
+                                                    assignedTo: task.assignedStudentNumbers ? task.assignedStudentNumbers.split(',').map(s => s.trim()) : [],
+                                                    is_volunteer_opportunity: !!task.is_volunteer_opportunity,
+                                                    proof_type: task.proof_type || 'None',
+                                                    status: task.status || 'Pending',
+                                                    skills: task.skills || []
+                                                });
+                                                setShowTaskModal(true);
+                                            }}
+                                            className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" 
+                                            title="Edit Task"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
                                         <button 
                                             onClick={() => handleDeleteTask(task.id)} 
                                             className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" 
@@ -578,16 +621,35 @@ const OCEventDetails = () => {
 
     // Partnerships functions
 
-    const handleAddPartner = (e) => {
+    const handleAddPartner = async (e) => {
         e.preventDefault();
-        if (editingId) {
-            setPartnerships(prev => prev.map(p => p.partnership_id === editingId ? { ...p, ...newPartner } : p));
-            setEditingId(null);
-        } else {
-            setPartnerships([...partnerships, { ...newPartner, partnership_id: Date.now() }]);
-        }
-        setShowPartnerModal(false);
-        setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Pending' });
+        try {
+            const token = localStorage.getItem('token');
+            if (editingId) {
+                const res = await fetch(`http://localhost:5000/api/events/${eventId}/partnerships/${editingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(newPartner)
+                });
+                if (res.ok) {
+                    setEditingId(null);
+                    setShowPartnerModal(false);
+                    setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Pending' });
+                    fetchEventDetails();
+                }
+            } else {
+                const res = await fetch(`http://localhost:5000/api/events/${eventId}/partnerships`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(newPartner)
+                });
+                if (res.ok) {
+                    setShowPartnerModal(false);
+                    setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Pending' });
+                    fetchEventDetails();
+                }
+            }
+        } catch (err) { console.error('Error saving partnership:', err); }
     };
 
     const handleEditPartner = (partner) => {
@@ -617,14 +679,14 @@ const OCEventDetails = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                        {partnerships.length === 0 ? (
+                        {dbPartnerships.length === 0 ? (
                             <tr>
                                 <td colSpan="6" className="px-6 py-8 text-center text-gray-400 italic">
                                     No partnerships added yet.
                                 </td>
                             </tr>
                         ) : (
-                            partnerships.map(p => (
+                            dbPartnerships.map(p => (
                                 <tr key={p.partnership_id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 font-bold text-gray-900">{p.company_name}</td>
                                     <td className="px-6 py-4 text-gray-500">{p.contact_person}</td>
@@ -837,8 +899,8 @@ const OCEventDetails = () => {
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
                     <div className="bg-white p-8 rounded-xl w-[450px] shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-xl text-gray-900">Add New Task</h3>
-                            <button onClick={() => setShowTaskModal(false)}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
+                            <h3 className="font-bold text-xl text-gray-900">{editTaskId ? 'Edit Task' : 'Add New Task'}</h3>
+                            <button onClick={() => { setShowTaskModal(false); setEditTaskId(null); }}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
                         <form onSubmit={handleAddTask} className="space-y-4">
                             <input required placeholder="Create the overall script" className="w-full border border-gray-200 p-3 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors" value={newTask.title} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
@@ -866,7 +928,7 @@ const OCEventDetails = () => {
                                     <p className="text-xs text-gray-500">Members across all dashboards can volunteer for this task</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" className="sr-only peer" checked={newTask.is_volunteer_opportunity} onChange={e => setNewTask({ ...newTask, is_volunteer_opportunity: e.target.checked, assignedTo: '' })} />
+                                    <input type="checkbox" className="sr-only peer" checked={newTask.is_volunteer_opportunity} onChange={e => setNewTask({ ...newTask, is_volunteer_opportunity: e.target.checked, assignedTo: [] })} />
                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                 </label>
                             </div>
@@ -904,12 +966,15 @@ const OCEventDetails = () => {
                                                     {suggestions.map(s => (
                                                         <li key={s.user_id} className="p-2 text-sm hover:bg-gray-100 cursor-pointer flex justify-between" 
                                                             onClick={() => {
-                                                                setNewTask({...newTask, assignedTo: [...newTask.assignedTo, s.student_no]});
+                                                                const sNum = s.student_number || s.student_no || '';
+                                                                if (sNum && !newTask.assignedTo.includes(sNum)) {
+                                                                    setNewTask({...newTask, assignedTo: [...newTask.assignedTo, sNum]});
+                                                                }
                                                                 setTaskAssignInputValue('');
                                                                 setShowSuggestions(false);
                                                             }}>
                                                             <span className="font-semibold">{s.full_name}</span>
-                                                            <span className="text-gray-500">{s.student_no}</span>
+                                                            <span className="text-gray-500">{s.student_number || s.student_no}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -976,7 +1041,7 @@ const OCEventDetails = () => {
                                 </div>
                             </div>
 
-                            <button type="submit" className="w-full bg-blue-600 text-white mt-4 py-3 rounded-lg font-bold text-sm tracking-wide shadow-sm hover:bg-blue-700 transition-colors">Add Task</button>
+                            <button type="submit" className="w-full bg-blue-600 text-white mt-4 py-3 rounded-lg font-bold text-sm tracking-wide shadow-sm hover:bg-blue-700 transition-colors">{editTaskId ? 'Update Task' : 'Add Task'}</button>
                         </form>
                     </div>
                 </div>
