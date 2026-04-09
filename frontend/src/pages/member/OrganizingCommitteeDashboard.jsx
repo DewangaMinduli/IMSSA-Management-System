@@ -27,31 +27,69 @@ const OrganizingCommitteeDashboard = () => {
     // Fetch initial data
     useEffect(() => {
         const fetchData = async () => {
-            const uid = user?.id || user?.user_id;
-            if (!uid) return;
+            const uid = user?.id;
+            console.log('[OC Dashboard] User ID:', uid, 'User object:', user);
+            if (!uid) {
+                console.error('[OC Dashboard] No user ID found');
+                return;
+            }
             
             try {
                 // Fetch Events
                 const resMyEvents = await fetch(`http://localhost:5000/api/events?user_id=${uid}`);
+                console.log('[OC Dashboard] Events API status:', resMyEvents.status, resMyEvents.ok);
+                if (resMyEvents.ok) {
+                    const eventsData = await resMyEvents.json();
+                    console.log('[OC Dashboard] Events data:', eventsData);
+                    setEvents(eventsData);
+                } else {
+                    const errorText = await resMyEvents.text();
+                    console.error('[OC Dashboard] Events API error:', errorText);
+                }
+
                 const resAllEvents = await fetch('http://localhost:5000/api/events');
-                
-                if (resMyEvents.ok) setEvents(await resMyEvents.json());
-                if (resAllEvents.ok) setAllEvents(await resAllEvents.json());
+                if (resAllEvents.ok) {
+                    const allEventsData = await resAllEvents.json();
+                    console.log('[OC Dashboard] All events data:', allEventsData);
+                    setAllEvents(allEventsData);
+                }
 
                 // Fetch My Tasks
                 const resMyTasks = await fetch(`http://localhost:5000/api/events/my-tasks?user_id=${uid}`);
-                if (resMyTasks.ok) setMyTasks(await resMyTasks.json());
+                console.log('[OC Dashboard] My Tasks API status:', resMyTasks.status, resMyTasks.ok);
+                if (resMyTasks.ok) {
+                    const tasksData = await resMyTasks.json();
+                    console.log('[OC Dashboard] My Tasks data:', tasksData);
+                    setMyTasks(tasksData);
+                } else {
+                    const errorText = await resMyTasks.text();
+                    console.error('[OC Dashboard] My Tasks API error:', errorText);
+                }
 
                 // Fetch Volunteer Opportunities (exclude own events)
-                const resVolOps = await fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}`);
-                if (resVolOps.ok) setVolunteerOps(await resVolOps.json());
+                const resVolOps = await fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}&current_user_id=${uid}`);
+                if (resVolOps.ok) {
+                    const data = await resVolOps.json();
+                    console.log('[OC Dashboard] Volunteer ops data:', data);
+                    // Filter out full tasks and tasks user already volunteered for
+                    const availableTasks = data.filter(task => !task.is_full && !task.user_has_volunteered);
+                    setVolunteerOps(availableTasks);
+                }
 
                 // Fetch Tasks to Approve (scoped to OC)
                 const resApprove = await fetch(`http://localhost:5000/api/events/tasks-to-approve?user_id=${uid}&role=oc`);
-                if (resApprove.ok) setTasksToApprove(await resApprove.json());
+                console.log('[OC Dashboard] Tasks to approve API status:', resApprove.status, resApprove.ok);
+                if (resApprove.ok) {
+                    const approveData = await resApprove.json();
+                    console.log('[OC Dashboard] Tasks to approve data:', approveData);
+                    setTasksToApprove(approveData);
+                } else {
+                    const errorText = await resApprove.text();
+                    console.error('[OC Dashboard] Tasks to approve API error:', errorText);
+                }
                 
             } catch (err) {
-                console.error('Data fetch error', err);
+                console.error('[OC Dashboard] Data fetch error:', err);
             } finally {
                 setLoadingEvents(false);
             }
@@ -65,7 +103,7 @@ const OrganizingCommitteeDashboard = () => {
     // Apply for volunteer opportunity
     const handleApplyVolunteer = async (task) => {
         try {
-            const uid = user?.id || user?.user_id;
+            const uid = user?.id;
             const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/volunteer`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -76,8 +114,14 @@ const OrganizingCommitteeDashboard = () => {
             
             // Remove from list immediately
             if (res.ok) {
+                alert(`Volunteered for: ${task.title}!`);
                 setVolunteerOps(prev => prev.filter(op => op.id !== task.id));
                 setMyTasks(prev => [...prev, { ...task, status: 'Assigned' }]);
+                
+                // Emit event to refresh EventDetails page
+                window.dispatchEvent(new CustomEvent('taskAssigned', { 
+                    detail: { taskId: task.id, eventId: task.event_id } 
+                }));
             }
         } catch (err) {
             alert('Failed to volunteer. Try again.');
@@ -281,7 +325,7 @@ const OrganizingCommitteeDashboard = () => {
                         </div>
                     ) : (
                         myTasks.map(task => (
-                            <div key={task.id} onClick={() => navigate(`/member/tasks/${task.id}`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition-shadow cursor-pointer group snap-start">
+                            <div key={task.id} onClick={() => navigate(`/member/tasks/${task.id}/${task.assignment_id}`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition-shadow cursor-pointer group snap-start">
                                 <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
                                 <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2 flex-grow">{task.desc}</p>
                                 <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {task.due}</div>

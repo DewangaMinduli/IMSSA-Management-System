@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const eventController = require('../controllers/eventController');
+// const submissionService = require('../utils/submissionService'); // Firebase not setup yet
+const notificationService = require('../utils/notificationService');
 
 // Student lookup (for task assignment)
 router.get('/lookup-student', async (req, res) => {
@@ -43,6 +45,61 @@ router.get('/my-tasks', eventController.getMyTasks);
 
 // Tasks to approve (OC / Exec)
 router.get('/tasks-to-approve', eventController.getTasksToApprove);
+
+// Task Details, Submissions & Comments
+router.get('/tasks/:taskId/assignments/:assignmentId', eventController.getTaskAssignmentDetails);
+router.patch('/tasks/:taskId/assignments/:assignmentId/submit', eventController.submitTaskAssignment);
+router.post('/tasks/:taskId/assignments/:assignmentId/submit-with-link', eventController.submitTaskWithLink);
+router.get('/tasks/:taskId/assignments/:assignmentId/comments', eventController.getComments);
+router.post('/tasks/:taskId/assignments/:assignmentId/comments', eventController.addComment);
+
+// Notifications
+router.get('/notifications', async (req, res) => {
+    try {
+        const { user_id, limit = 20, unread_only } = req.query;
+        if (!user_id) return res.status(400).json({ message: 'user_id is required' });
+        
+        const notifications = await notificationService.getNotifications(user_id, parseInt(limit), unread_only === 'true');
+        res.json(notifications);
+    } catch (err) {
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
+router.get('/notifications/unread-count', async (req, res) => {
+    try {
+        const { user_id } = req.query;
+        if (!user_id) return res.status(400).json({ message: 'user_id is required' });
+        
+        const count = await notificationService.getUnreadCount(user_id);
+        res.json({ unread_count: count });
+    } catch (err) {
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
+router.patch('/notifications/:notificationId/read', async (req, res) => {
+    try {
+        const { notificationId } = req.params;
+        const success = await notificationService.markAsRead(notificationId);
+        res.json({ success });
+    } catch (err) {
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
+router.patch('/notifications/read-all', async (req, res) => {
+    try {
+        const { user_id } = req.body;
+        if (!user_id) return res.status(400).json({ message: 'user_id is required' });
+        
+        const count = await notificationService.markAllAsRead(user_id);
+        res.json({ marked_as_read: count });
+    } catch (err) {
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
 
 // Timeline
 router.post('/:id/timeline', eventController.addTimelineEvent);

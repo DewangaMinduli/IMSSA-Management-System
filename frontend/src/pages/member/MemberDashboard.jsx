@@ -37,13 +37,17 @@ const MemberDashboard = () => {
 
     // Fetch live data
     useEffect(() => {
-        if (!user?.user_id && !user?.id) return;
-        const uid = user.user_id || user.id;
+        if (!user?.id) return;
+        const uid = user.id;
 
         // Fetch Volunteer Opportunities
-        fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}`)
+        fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}&current_user_id=${uid}`)
             .then(r => r.ok ? r.json() : [])
-            .then(setVolunteerOps)
+            .then(data => {
+                // Filter out full tasks and tasks user already volunteered for
+                const availableTasks = data.filter(task => !task.is_full && !task.user_has_volunteered);
+                setVolunteerOps(availableTasks);
+            })
             .catch(() => {});
 
         // Fetch My Tasks
@@ -66,6 +70,11 @@ const MemberDashboard = () => {
             if (res.ok) {
                 setVolunteerOps(prev => prev.filter(op => op.id !== task.id));
                 setMyTasks(prev => [...prev, { ...task, status: 'Assigned' }]);
+                
+                // Emit event to refresh EventDetails page
+                window.dispatchEvent(new CustomEvent('taskAssigned', { 
+                    detail: { taskId: task.id, eventId: task.event_id } 
+                }));
             }
         } catch (err) {
             alert('Failed to volunteer. Try again.');
@@ -203,7 +212,7 @@ const MemberDashboard = () => {
                     ) : myTasks.map(task => (
                         <div
                             key={task.id}
-                            onClick={() => navigate(`/member/tasks/${task.id}`)}
+                            onClick={() => navigate(`/member/tasks/${task.id}/${task.assignment_id}`)}
                             className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition-shadow snap-start cursor-pointer group"
                         >
                             <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
@@ -220,20 +229,50 @@ const MemberDashboard = () => {
                         <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
                             No volunteer opportunities at this time.
                         </div>
-                    ) : volunteerOps.map(op => (
-                        <div
-                            key={op.id}
-                            onClick={() => setSelectedVolunteerTask(op)}
-                            className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition-shadow snap-start cursor-pointer group"
-                        >
-                            <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{op.title}</h4>
-                            <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2">{op.desc}</p>
-                            <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
-                                <span className="text-xs font-medium">Click to View</span>
-                                <ChevronRight size={14} />
+                    ) : volunteerOps.map(op => {
+                        const isFull = op.is_full === true;
+                        const volunteerCount = op.volunteer_count || 0;
+                        const maxVolunteers = op.max_volunteers || 5;
+                        
+                        return (
+                            <div
+                                key={op.id}
+                                onClick={() => setSelectedVolunteerTask(op)}
+                                className={`min-w-[320px] bg-white p-5 rounded-xl border flex flex-col hover:shadow-md transition-all snap-start cursor-pointer group ${
+                                    isFull ? 'border-gray-200 opacity-75' : 'border-gray-100 shadow-sm'
+                                }`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-bold text-gray-800 text-sm group-hover:text-teal-600 transition-colors flex-1">{op.title}</h4>
+                                    {isFull && (
+                                        <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-semibold rounded whitespace-nowrap">Full</span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2">{op.desc}</p>
+                                
+                                {/* Volunteer Counter */}
+                                <div className="mb-3 p-2 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-xs font-medium text-gray-600">Volunteers</span>
+                                        <span className={`text-xs font-bold ${isFull ? 'text-red-600' : 'text-teal-600'}`}>
+                                            {volunteerCount} of {maxVolunteers}
+                                        </span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-gray-300 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all ${isFull ? 'bg-red-500' : 'bg-teal-500'}`}
+                                            style={{ width: `${(volunteerCount / maxVolunteers) * 100}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
+                                    <span className="text-xs font-medium">Click to View</span>
+                                    <ChevronRight size={14} />
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </ScrollSection>
 
                 {/* EVENTS (Live from DB) */}

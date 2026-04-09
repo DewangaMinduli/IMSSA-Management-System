@@ -90,7 +90,11 @@ const OCEventDetails = () => {
                 const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks/${editTaskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(newTask)
+                    body: JSON.stringify({
+                        ...newTask,
+                        assigned_users: newTask.assignedTo,
+                        assignedTo: undefined
+                    })
                 });
                 if (res.ok) {
                     setShowTaskModal(false);
@@ -106,7 +110,11 @@ const OCEventDetails = () => {
                 const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(newTask)
+                    body: JSON.stringify({
+                        ...newTask,
+                        assigned_users: newTask.assignedTo,
+                        assignedTo: undefined
+                    })
                 });
                 if (res.ok) {
                     setShowTaskModal(false);

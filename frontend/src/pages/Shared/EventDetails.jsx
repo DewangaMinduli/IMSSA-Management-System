@@ -47,6 +47,35 @@ const EventDetails = () => {
         } catch (e) { }
     };
 
+    const refreshEventDetails = async () => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/events/${eventId}/details`);
+            if (res.ok) {
+                setData(await res.json());
+            }
+        } catch (e) { }
+    };
+
+    // Listen for task updates from other components
+    useEffect(() => {
+        const handleTaskUpdate = () => {
+            refreshEventDetails();
+        };
+
+        // Listen for custom event from task components
+        window.addEventListener('taskUpdated', handleTaskUpdate);
+        window.addEventListener('taskAssigned', handleTaskUpdate);
+        window.addEventListener('taskSubmitted', handleTaskUpdate);
+        window.addEventListener('taskApproved', handleTaskUpdate);
+
+        return () => {
+            window.removeEventListener('taskUpdated', handleTaskUpdate);
+            window.removeEventListener('taskAssigned', handleTaskUpdate);
+            window.removeEventListener('taskSubmitted', handleTaskUpdate);
+            window.removeEventListener('taskApproved', handleTaskUpdate);
+        };
+    }, [eventId]);
+
     useEffect(() => {
         const fetchEventDetails = async () => {
             try {
@@ -63,6 +92,11 @@ const EventDetails = () => {
             }
         };
         fetchEventDetails();
+
+        // Set up periodic refresh to ensure data is current
+        const interval = setInterval(fetchEventDetails, 10000); // Refresh every 10 seconds
+
+        return () => clearInterval(interval);
     }, [eventId]);
 
     if (loading) {
@@ -159,25 +193,42 @@ const EventDetails = () => {
                                         <th className="py-3 font-medium">Task</th>
                                         <th className="py-3 font-medium">Assigned To</th>
                                         <th className="py-3 font-medium">Deadline</th>
+                                        <th className="py-3 font-medium">Volunteer Limit</th>
                                         <th className="py-3 font-medium">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody className="text-sm">
-                                    {tasks.map((task) => (
-                                        <tr key={task.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                                            <td className="py-4 font-bold text-gray-800">{task.title}</td>
-                                            <td className="py-4 text-gray-500">{task.assignedTo || 'Unassigned'}</td>
-                                            <td className="py-4 text-gray-500">{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No Deadline'}</td>
-                                            <td className="py-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                                    task.status === 'Completed' ? 'bg-green-100 text-green-700' : 
-                                                    task.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
-                                                }`}>
-                                                    {task.status || 'Pending'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {tasks.map((task) => {
+                                        const isVolunteerOpportunity = task.is_volunteer_opportunity === 1;
+                                        return (
+                                            <tr key={task.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                                                <td className="py-4 font-bold text-gray-800">{task.title}</td>
+                                                <td className="py-4 text-gray-500">
+                                                    {isVolunteerOpportunity ? (
+                                                        <div>
+                                                            <div className="font-medium">{task.assignedTo}</div>
+                                                            {task.volunteer_limit && (
+                                                                <div className="text-xs text-gray-400 mt-1">
+                                                                    Limit: {task.volunteer_limit} volunteers
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        task.assignedTo || 'Unassigned'
+                                                    )}
+                                                </td>
+                                                <td className="py-4 text-gray-500">{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No Deadline'}</td>
+                                                <td className="py-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                                        task.status === 'Completed' ? 'bg-green-100 text-green-700' : 
+                                                        task.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                                                    }`}>
+                                                        {task.status || 'Pending'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

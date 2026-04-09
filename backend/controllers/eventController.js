@@ -42,12 +42,36 @@ exports.getEventDetails = async (req, res) => {
 
         // 2. Get Event Tasks (with volunteer flag and assignment info)
         const [tasks] = await db.execute(`
-            SELECT t.task_id as id, t.title, t.description, t.deadline, t.status,
-                   t.is_volunteer_opportunity, t.priority, t.proof_type,
-                   GROUP_CONCAT(u.full_name SEPARATOR ', ') as assignedTo,
-                   GROUP_CONCAT(u.student_number SEPARATOR ', ') as assignedStudentNumbers
+            SELECT 
+                t.task_id as id, 
+                t.title, 
+                t.description, 
+                t.deadline, 
+                t.status,
+                t.is_volunteer_opportunity, 
+                t.priority, 
+                t.proof_type,
+                CASE 
+                    WHEN t.is_volunteer_opportunity = 1 THEN 
+                        CASE 
+                            WHEN COUNT(DISTINCT ta.assigned_user_id) >= 5 THEN 
+                                'Full - All slots filled (5 volunteers)'
+                            WHEN COUNT(DISTINCT ta.assigned_user_id) > 0 THEN 
+                                CONCAT(COUNT(DISTINCT ta.assigned_user_id), '/5 volunteers')
+                            ELSE 'Open for Volunteer'
+                        END
+                    ELSE 
+                        GROUP_CONCAT(DISTINCT u.full_name SEPARATOR ', ')
+                END as assignedTo,
+                CASE 
+                    WHEN t.is_volunteer_opportunity = 1 THEN 
+                        CONCAT(COUNT(DISTINCT ta.assigned_user_id), '/5')
+                    ELSE 
+                        GROUP_CONCAT(DISTINCT u.student_number SEPARATOR ', ')
+                END as assignedStudentNumbers
             FROM task t
-            LEFT JOIN task_assignment ta ON t.task_id = ta.task_id
+            LEFT JOIN task_assignment ta ON t.task_id = ta.task_id 
+                AND ta.status IN ('Assigned', 'In_Progress', 'Submitted', 'Verified')
             LEFT JOIN user u ON ta.assigned_user_id = u.user_id
             WHERE t.event_id = ?
             GROUP BY t.task_id
@@ -354,7 +378,7 @@ exports.addTask = async (req, res) => {
     let connection;
     try {
         const eventId = req.params.id;
-        const { title, description, assignedTo, deadline, status, is_volunteer_opportunity, priority, proof_type, skills } = req.body;
+        const { title, description, deadline, is_volunteer_opportunity, priority, proof_type, volunteer_limit, assigned_users, skills } = req.body;
 
         if (!title) return res.status(400).json({ message: "Task title is required." });
 
@@ -365,16 +389,16 @@ exports.addTask = async (req, res) => {
         await connection.beginTransaction();
 
         const [result] = await connection.execute(
-            `INSERT INTO task (event_id, title, description, deadline, status, is_volunteer_opportunity, priority, proof_type)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [eventId, title, description || null, deadline || null, status || 'Pending', isVolunteer, priority || 'Medium', pType]
+            `INSERT INTO task (event_id, title, description, deadline, status, is_volunteer_opportunity, priority, proof_type, volunteer_limit)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [eventId, title, description || null, deadline || null, 'Pending', isVolunteer, priority || 'Medium', pType, volunteer_limit || null]
         );
         
         const newTaskId = result.insertId;
 
         // Resolve assignees
-        if (assignedTo && !isVolunteer) {
-            let assignees = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+        if (assigned_users && !isVolunteer) {
+            let assignees = Array.isArray(assigned_users) ? assigned_users : [assigned_users];
             for (const assignee of assignees) {
                 if (!assignee) continue;
                 let userId = null;
@@ -419,7 +443,7 @@ exports.addTask = async (req, res) => {
     } catch (err) {
         if (connection) await connection.rollback();
         console.error("Error adding task:", err);
-        res.status(500).json({ message: 'Server Error adding task' });
+        res.status(500).json({ message: 'Server Error adding task: ' + err.message, error: err.message, stack: err.stack });
     } finally {
         if (connection) connection.release();
     }
@@ -430,7 +454,7 @@ exports.updateTask = async (req, res) => {
     let connection;
     try {
         const { taskId } = req.params;
-        const { title, description, deadline, priority, status, is_volunteer_opportunity, assignedTo, proof_type, skills } = req.body;
+        const { title, description, deadline, priority, status, is_volunteer_opportunity, assigned_users, proof_type, skills } = req.body;
 
         if (!title) return res.status(400).json({ message: 'Title is required.' });
 
@@ -445,9 +469,9 @@ exports.updateTask = async (req, res) => {
             [title, description || null, deadline || null, priority || 'Medium', status || 'Pending', isVolunteer, pType, taskId]
         );
 
-        if (!isVolunteer && assignedTo !== undefined) {
+        if (!isVolunteer && assigned_users !== undefined) {
             await connection.execute(`DELETE FROM task_assignment WHERE task_id = ?`, [taskId]);
-            let assignees = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+            let assignees = Array.isArray(assigned_users) ? assigned_users : [assigned_users];
             for (const assignee of assignees) {
                 if (!assignee) continue;
                 let userId = null;
@@ -529,26 +553,92 @@ exports.deleteTask = async (req, res) => {
 
 // Update task assignment status (the lifecycle dropdown)
 exports.updateTaskAssignmentStatus = async (req, res) => {
+    let connection;
     try {
         const { taskId, assignmentId } = req.params;
-        const { status } = req.body;
+        let { status } = req.body;
 
-        const validStatuses = ['Volunteer', 'Assigned', 'In Progress', 'Submitted', 'Approved', 'Declined'];
+        // Normalize frontend "Approved" to database "Verified", and "Declined" to "Rejected"
+        if (status === 'Approved') status = 'Verified';
+        if (status === 'Declined') status = 'Rejected';
+        if (status === 'In Progress') status = 'In_Progress';
+
+        const validStatuses = ['Volunteer', 'Assigned', 'In_Progress', 'Submitted', 'Verified', 'Rejected'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: 'Invalid status value.' });
         }
 
-        const [result] = await db.execute(
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        const [result] = await connection.execute(
             `UPDATE task_assignment SET status = ? WHERE assignment_id = ? AND task_id = ?`,
             [status, assignmentId, taskId]
         );
 
-        if (result.affectedRows === 0) return res.status(404).json({ message: 'Assignment not found.' });
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Assignment not found.' });
+        }
 
+        // Get assignment user ID for notifications
+        const [assignmentData] = await connection.execute(
+            `SELECT ta.assigned_user_id, t.title, t.priority 
+             FROM task_assignment ta
+             JOIN task t ON ta.task_id = t.task_id
+             WHERE ta.assignment_id = ?`,
+            [assignmentId]
+        );
+
+        if (assignmentData.length > 0) {
+            const { assigned_user_id, title, priority } = assignmentData[0];
+
+            // AUTOMATIC SKILL AWARDING LOGIC
+            if (status === 'Verified') {
+                const points = priority === 'High' ? 30 : priority === 'Medium' ? 20 : 10;
+
+                // Get the Skills linked to this task
+                const [skills] = await connection.execute(
+                    `SELECT skill_tag_id FROM task_skill WHERE task_id = ?`,
+                    [taskId]
+                );
+
+                // Award the skills
+                if (skills.length > 0) {
+                    for (const row of skills) {
+                        const sId = row.skill_tag_id;
+                        await connection.execute(`
+                            INSERT INTO member_skill_level (user_id, skill_tag_id, points, last_verified_at)
+                            VALUES (?, ?, ?, NOW())
+                            ON DUPLICATE KEY UPDATE points = points + ?, last_verified_at = NOW()
+                        `, [assigned_user_id, sId, points, points]);
+                    }
+                }
+
+                // Send approval notification
+                await connection.execute(
+                    `INSERT INTO notification (user_id, title, message, type) 
+                     VALUES (?, ?, ?, 'TASK')`,
+                    [assigned_user_id, 'Task Approved! ✓', `Your task "${title}" has been approved. Skills have been added to your profile!`]
+                );
+            } else if (status === 'Rejected') {
+                // Send rejection notification
+                await connection.execute(
+                    `INSERT INTO notification (user_id, title, message, type) 
+                     VALUES (?, ?, ?, 'TASK')`,
+                    [assigned_user_id, 'Task Changes Requested', `Your task "${title}" needs changes. Please review comments and resubmit.`]
+                );
+            }
+        }
+
+        await connection.commit();
         res.json({ message: 'Status updated successfully' });
     } catch (err) {
+        if (connection) await connection.rollback();
         console.error("Error updating assignment status:", err);
         res.status(500).json({ message: 'Server Error' });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
@@ -581,10 +671,12 @@ exports.getMyTasks = async (req, res) => {
         const [tasks] = await db.execute(`
             SELECT t.task_id as id, t.title, t.description as \`desc\`, t.deadline as due,
                    e.event_name as event, e.event_id,
-                   ta.status, t.priority
+                   ta.status, t.priority, t.proof_type, ta.assignment_id,
+                   u.full_name as assigned_to
             FROM task t
             JOIN event e ON t.event_id = e.event_id
             JOIN task_assignment ta ON t.task_id = ta.task_id
+            JOIN user u ON ta.assigned_user_id = u.user_id
             WHERE ta.assigned_user_id = ?
             ORDER BY t.deadline ASC
         `, [user_id]);
@@ -600,16 +692,20 @@ exports.getMyTasks = async (req, res) => {
 // Optional: ?exclude_user_id=N  → excludes tasks from events created by that user
 exports.getVolunteerOpportunities = async (req, res) => {
     try {
-        const { exclude_user_id } = req.query;
+        const { exclude_user_id, current_user_id } = req.query;
+        const MAX_VOLUNTEERS = 5; // Configurable
 
         let query = `
             SELECT t.task_id as id, t.title, t.description as \`desc\`, t.deadline as due,
                    e.event_name as event, e.event_id,
-                   t.priority
+                   t.priority, t.proof_type,
+                   COUNT(DISTINCT ta.assignment_id) as volunteer_count
             FROM task t
             JOIN event e ON t.event_id = e.event_id
+            LEFT JOIN task_assignment ta ON t.task_id = ta.task_id 
+                AND ta.status IN ('Assigned', 'In_Progress', 'Submitted', 'Verified')
             WHERE t.is_volunteer_opportunity = 1
-              AND t.status != 'Completed'
+              AND t.status != 'Verified'
         `;
         const params = [];
 
@@ -618,10 +714,31 @@ exports.getVolunteerOpportunities = async (req, res) => {
             params.push(exclude_user_id);
         }
 
-        query += ` ORDER BY t.deadline ASC`;
+        query += ` GROUP BY t.task_id ORDER BY t.deadline ASC`;
 
         const [tasks] = await db.execute(query, params);
-        res.json(tasks);
+
+        // Enhance response with slot info and user's volunteer status
+        const enhancedTasks = await Promise.all(tasks.map(async (task) => {
+            let userHasVolunteered = false;
+            if (current_user_id) {
+                const [checkVol] = await db.execute(
+                    `SELECT assignment_id FROM task_assignment WHERE task_id = ? AND assigned_user_id = ?`,
+                    [task.id, current_user_id]
+                );
+                userHasVolunteered = checkVol.length > 0;
+            }
+
+            return {
+                ...task,
+                max_volunteers: MAX_VOLUNTEERS,
+                volunteers_needed: Math.max(0, MAX_VOLUNTEERS - task.volunteer_count),
+                is_full: task.volunteer_count >= MAX_VOLUNTEERS,
+                user_has_volunteered: userHasVolunteered
+            };
+        }));
+
+        res.json(enhancedTasks);
     } catch (err) {
         console.error("Error fetching volunteer opportunities:", err);
         res.status(500).json({ message: 'Server Error' });
@@ -633,25 +750,67 @@ exports.volunteerForTask = async (req, res) => {
     try {
         const { taskId } = req.params;
         const { user_id } = req.body;
+        
+        if (!user_id) return res.status(400).json({ message: 'user_id is required' });
 
-        if (!user_id) return res.status(400).json({ message: 'user_id is required.' });
+        // Get task details to check if it's a volunteer opportunity and its limit
+        const [taskCheck] = await db.execute(
+            'SELECT is_volunteer_opportunity, COALESCE(t.volunteer_limit, 5) as volunteer_limit FROM task WHERE task_id = ?',
+            [taskId]
+        );
 
-        // Check if already volunteered
+        if (taskCheck.length === 0) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
+
+        const task = taskCheck[0];
+        const isVolunteerOpportunity = task.is_volunteer_opportunity === 1;
+        const volunteerLimit = task.volunteer_limit || 5;
+
+        // Check if user has already volunteered for this task
         const [existing] = await db.execute(
-            `SELECT assignment_id FROM task_assignment WHERE task_id = ? AND assigned_user_id = ?`,
+            'SELECT assignment_id FROM task_assignment WHERE task_id = ? AND assigned_user_id = ?',
             [taskId, user_id]
         );
 
         if (existing.length > 0) {
-            return res.status(409).json({ message: 'You have already volunteered for this task.' });
+            return res.status(409).json({ 
+                message: 'You have already volunteered for this task',
+                already_volunteered: true
+            });
         }
 
+        if (!isVolunteerOpportunity) {
+            return res.status(400).json({ message: 'This task is not a volunteer opportunity' });
+        }
+
+        // Check current volunteer count for this task
+        const [currentCount] = await db.execute(
+            'SELECT COUNT(*) as count FROM task_assignment WHERE task_id = ? AND status IN (?, ?, ?, ?)',
+            [taskId, 'Assigned', 'In_Progress', 'Submitted', 'Verified']
+        );
+
+        if (currentCount[0].count >= volunteerLimit) {
+            return res.status(409).json({ 
+                message: `This task has reached its maximum volunteer limit (${volunteerLimit})`,
+                current_volunteers: currentCount[0].count,
+                max_volunteers: volunteerLimit
+            });
+        }
+
+        // Create volunteer assignment
         await db.execute(
             `INSERT INTO task_assignment (task_id, assigned_user_id, status) VALUES (?, ?, 'Assigned')`,
             [taskId, user_id]
         );
 
-        res.status(201).json({ message: 'Successfully volunteered for task.' });
+        res.json({ 
+            message: 'Successfully volunteered for task!',
+            assignment_status: 'Assigned',
+            is_volunteer_opportunity: true,
+            volunteer_limit: volunteerLimit
+        });
+
     } catch (err) {
         console.error("Error volunteering for task:", err);
         res.status(500).json({ message: 'Server Error' });
@@ -668,11 +827,14 @@ exports.getTaskAssignmentDetails = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT 
                 t.task_id as id, t.title, t.description as \`desc\`, t.deadline as due, t.status as task_status,
+                t.priority, t.proof_type,
                 e.event_name, e.event_id,
-                ta.assignment_id, ta.status as assignment_status, ta.submission_text, ta.submission_file_url, ta.assigned_user_id
+                ta.assignment_id, ta.status as assignment_status, ta.submission_text, ta.submission_file_url, ta.assigned_user_id,
+                u.full_name as assigned_to, u.student_number as assigned_student_no
             FROM task t
             JOIN task_assignment ta ON t.task_id = ta.task_id
             JOIN event e ON t.event_id = e.event_id
+            JOIN user u ON ta.assigned_user_id = u.user_id
             WHERE t.task_id = ? AND ta.assignment_id = ?
         `, [taskId, assignmentId]);
 
@@ -702,6 +864,115 @@ exports.submitTaskAssignment = async (req, res) => {
     }
 };
 
+exports.submitTaskWithLink = async (req, res) => {
+    let connection;
+    try {
+        const { taskId, assignmentId } = req.params;
+        const { submission_text, drive_link } = req.body;
+
+        // Validate input
+        if (!taskId || !assignmentId) {
+            return res.status(400).json({ message: 'taskId and assignmentId are required' });
+        }
+
+        // Verify assignment exists
+        const [assignmentCheck] = await db.execute(
+            'SELECT assignment_id, task_id, assigned_user_id, status FROM task_assignment WHERE assignment_id = ? AND task_id = ?',
+            [assignmentId, taskId]
+        );
+
+        if (assignmentCheck.length === 0) {
+            return res.status(404).json({ message: 'Assignment not found' });
+        }
+
+        // Get task proof_type requirement
+        const [taskCheck] = await db.execute(
+            'SELECT proof_type FROM task WHERE task_id = ?',
+            [taskId]
+        );
+
+        if (taskCheck.length === 0) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
+
+        const task = taskCheck[0];
+        const proofType = task.proof_type;
+
+        // Validate submission based on proof type
+        if (proofType === 'File_Upload' && !drive_link) {
+            return res.status(400).json({ message: 'This task requires a Google Drive link' });
+        }
+
+        if (proofType === 'Description_Only' && !submission_text) {
+            return res.status(400).json({ message: 'This task requires a text description' });
+        }
+
+        // Validate Google Drive link format if provided
+        if (drive_link && !drive_link.includes('drive.google.com')) {
+            return res.status(400).json({ message: 'Please provide a valid Google Drive link' });
+        }
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // Update task assignment with submission
+        await connection.execute(
+            `UPDATE task_assignment 
+             SET submission_text = ?, submission_file_url = ?, status = 'Submitted'
+             WHERE assignment_id = ? AND task_id = ?`,
+            [submission_text || null, drive_link || null, assignmentId, taskId]
+        );
+
+        // Add notification to relevant OC members
+        const [eventCheck] = await db.execute(
+            'SELECT event_id FROM task WHERE task_id = ?',
+            [taskId]
+        );
+
+        if (eventCheck.length > 0) {
+            const eventId = eventCheck[0].event_id;
+
+            // Get all OC members
+            const [ocMembers] = await db.execute(
+                `SELECT DISTINCT user_id FROM event_coordinator WHERE event_id = ?`,
+                [eventId]
+            );
+
+            // Create notifications for OC members
+            if (ocMembers.length > 0) {
+                for (const ocMember of ocMembers) {
+                    await connection.execute(
+                        `INSERT INTO notification (user_id, title, message, type) 
+                         VALUES (?, ?, ?, 'TASK')`,
+                        [
+                            ocMember.user_id,
+                            'Task Submission',
+                            `A member has submitted their work for your task. Review and approve when ready.`
+                        ]
+                    );
+                }
+            }
+        }
+
+        await connection.commit();
+
+        res.json({
+            message: 'Task submitted successfully',
+            assignment_id: assignmentId,
+            status: 'Submitted',
+            submitted_at: new Date().toISOString(),
+            drive_link: drive_link || null
+        });
+
+    } catch (err) {
+        if (connection) await connection.rollback();
+        console.error('Error submitting task:', err);
+        res.status(500).json({ message: 'Server Error: ' + err.message });
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 exports.getComments = async (req, res) => {
     try {
         const { assignmentId } = req.params;
@@ -727,7 +998,7 @@ exports.addComment = async (req, res) => {
         if (!user_id || !text) return res.status(400).json({ message: 'user_id and text are required.' });
 
         const [result] = await db.execute(
-            \`INSERT INTO task_comment (assignment_id, user_id, comment_text) VALUES (?, ?, ?)\`,
+            `INSERT INTO task_comment (assignment_id, user_id, comment_text) VALUES (?, ?, ?)`,
             [assignmentId, user_id, text]
         );
         res.status(201).json({ message: 'Comment added', comment_id: result.insertId });
@@ -902,7 +1173,7 @@ exports.getTasksToApprove = async (req, res) => {
                 WHERE t.event_id IN (
                     SELECT event_id FROM event_coordinator WHERE user_id = ?
                 )
-                AND ta.status IN ('Submitted', 'Completed')
+                AND ta.status IN ('Submitted')
                 AND ta.assigned_user_id != ?
                 ORDER BY t.deadline ASC
             `;

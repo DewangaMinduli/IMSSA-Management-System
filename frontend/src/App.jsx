@@ -71,7 +71,7 @@ export default function App() {
                 <Route path="profile" element={<MemberProfile />} />
                 <Route path="feedback" element={<MemberFeedback />} />
                 <Route path="request-letter" element={<MemberRequestLetter />} />
-                <Route path="tasks/:taskId" element={<TaskDetails />} />
+                <Route path="tasks/:taskId/:assignmentId" element={<TaskDetails />} />
               </Routes>
             </Layout>
           } />
@@ -85,6 +85,7 @@ export default function App() {
                 <Route path="junior-treasurer-dashboard" element={<JuniorTreasurerDashboard />} />
                 <Route path="create-event" element={<CreateEvent />} />
                 <Route path="nominate-term" element={<NominateTerm />} />
+                <Route path="tasks/:taskId/:assignmentId" element={<TaskDetails />} />
                 <Route path="*" element={<div>Exec 404</div>} />
               </Routes>
             </Layout>

@@ -22,7 +22,7 @@ const ExecutiveDashboard = () => {
     // Fetch initial data
     useEffect(() => {
         const fetchData = async () => {
-            const uid = user?.id || user?.user_id;
+            const uid = user?.id;
             if (!uid) return;
             
             try {
@@ -53,7 +53,7 @@ const ExecutiveDashboard = () => {
 
     const handleApplyVolunteer = async (task) => {
         try {
-            const uid = user?.id || user?.user_id;
+            const uid = user?.id;
             const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/volunteer`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -205,7 +205,7 @@ const ExecutiveDashboard = () => {
                             No tasks assigned.
                         </div>
                     ) : myTasks.map(task => (
-                        <div key={task.id} onClick={() => navigate(`/exec/tasks/${task.id}`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start group">
+                        <div key={task.id} onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start group">
                             <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-grow">{task.desc}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {task.due}</div>

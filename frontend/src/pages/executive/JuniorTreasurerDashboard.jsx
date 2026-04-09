@@ -44,7 +44,7 @@ const JuniorTreasurerDashboard = () => {
     useEffect(() => {
         const init = async () => {
             try {
-                const uid = user?.id || user?.user_id;
+                const uid = user?.id;
 
                 const [finRes, evRes, tasksRes, volRes, approveRes] = await Promise.all([
                     fetch('http://localhost:5000/api/finance/dashboard-summary'),
