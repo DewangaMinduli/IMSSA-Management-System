@@ -384,14 +384,21 @@ exports.addTask = async (req, res) => {
 
         const isVolunteer = is_volunteer_opportunity ? 1 : 0;
         const pType = proof_type || 'None';
+        const volLimit = volunteer_limit || 5;
+        
+        // Append volunteer limit as hidden marker for volunteer opportunities
+        let finalDesc = description || '';
+        if (isVolunteer) {
+            finalDesc = `${finalDesc}<!--VL:${volLimit}-->`;
+        }
 
         connection = await db.getConnection();
         await connection.beginTransaction();
 
         const [result] = await connection.execute(
-            `INSERT INTO task (event_id, title, description, deadline, status, is_volunteer_opportunity, priority, proof_type, volunteer_limit)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [eventId, title, description || null, deadline || null, 'Pending', isVolunteer, priority || 'Medium', pType, volunteer_limit || null]
+            `INSERT INTO task (event_id, title, description, deadline, status, is_volunteer_opportunity, priority, proof_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [eventId, title, finalDesc || null, deadline || null, 'Pending', isVolunteer, priority || 'Medium', pType]
         );
         
         const newTaskId = result.insertId;
@@ -454,19 +461,26 @@ exports.updateTask = async (req, res) => {
     let connection;
     try {
         const { taskId } = req.params;
-        const { title, description, deadline, priority, status, is_volunteer_opportunity, assigned_users, proof_type, skills } = req.body;
+        const { title, description, deadline, priority, status, is_volunteer_opportunity, volunteer_limit, assigned_users, proof_type, skills } = req.body;
 
         if (!title) return res.status(400).json({ message: 'Title is required.' });
 
         const isVolunteer = is_volunteer_opportunity ? 1 : 0;
         const pType = proof_type || 'None';
+        const volLimit = volunteer_limit || 5;
+        
+        // Append volunteer limit as hidden marker for volunteer opportunities
+        let finalDesc = description || '';
+        if (isVolunteer) {
+            finalDesc = `${finalDesc}<!--VL:${volLimit}-->`;
+        }
 
         connection = await db.getConnection();
         await connection.beginTransaction();
 
         await connection.execute(
             `UPDATE task SET title = ?, description = ?, deadline = ?, priority = ?, status = ?, is_volunteer_opportunity = ?, proof_type = ? WHERE task_id = ?`,
-            [title, description || null, deadline || null, priority || 'Medium', status || 'Pending', isVolunteer, pType, taskId]
+            [title, finalDesc || null, deadline || null, priority || 'Medium', status || 'Pending', isVolunteer, pType, taskId]
         );
 
         if (!isVolunteer && assigned_users !== undefined) {
@@ -693,7 +707,6 @@ exports.getMyTasks = async (req, res) => {
 exports.getVolunteerOpportunities = async (req, res) => {
     try {
         const { exclude_user_id, current_user_id } = req.query;
-        const MAX_VOLUNTEERS = 5; // Configurable
 
         let query = `
             SELECT t.task_id as id, t.title, t.description as \`desc\`, t.deadline as due,
@@ -729,11 +742,19 @@ exports.getVolunteerOpportunities = async (req, res) => {
                 userHasVolunteered = checkVol.length > 0;
             }
 
+            // Parse volunteer limit from description (format: <!--VL:N-->)
+            const volMatch = task.desc?.match(/<!--VL:(\d+)-->/);
+            const maxVolunteers = volMatch ? parseInt(volMatch[1]) : 5;
+            
+            // Clean description by removing the hidden marker
+            const cleanDesc = task.desc?.replace(/<!--VL:\d+-->/, '') || '';
+
             return {
                 ...task,
-                max_volunteers: MAX_VOLUNTEERS,
-                volunteers_needed: Math.max(0, MAX_VOLUNTEERS - task.volunteer_count),
-                is_full: task.volunteer_count >= MAX_VOLUNTEERS,
+                desc: cleanDesc,
+                max_volunteers: maxVolunteers,
+                volunteers_needed: Math.max(0, maxVolunteers - task.volunteer_count),
+                is_full: task.volunteer_count >= maxVolunteers,
                 user_has_volunteered: userHasVolunteered
             };
         }));
@@ -753,9 +774,9 @@ exports.volunteerForTask = async (req, res) => {
         
         if (!user_id) return res.status(400).json({ message: 'user_id is required' });
 
-        // Get task details to check if it's a volunteer opportunity and its limit
+        // Get task details to check if it's a volunteer opportunity
         const [taskCheck] = await db.execute(
-            'SELECT is_volunteer_opportunity, COALESCE(t.volunteer_limit, 5) as volunteer_limit FROM task WHERE task_id = ?',
+            'SELECT is_volunteer_opportunity, description FROM task WHERE task_id = ?',
             [taskId]
         );
 
@@ -765,7 +786,10 @@ exports.volunteerForTask = async (req, res) => {
 
         const task = taskCheck[0];
         const isVolunteerOpportunity = task.is_volunteer_opportunity === 1;
-        const volunteerLimit = task.volunteer_limit || 5;
+        
+        // Parse volunteer limit from description (format: <!--VL:N-->)
+        const volMatch = task.description?.match(/<!--VL:(\d+)-->/);
+        const volunteerLimit = volMatch ? parseInt(volMatch[1]) : 5;
 
         // Check if user has already volunteered for this task
         const [existing] = await db.execute(

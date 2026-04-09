@@ -242,18 +242,41 @@ const PresidentDashboard = () => {
                         <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
                             No volunteer opportunities at this time.
                         </div>
-                    ) : volunteerOps.map(op => (
-                        <div key={op.id} onClick={() => setSelectedVolunteerTask(op)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col hover:shadow-md transition-shadow snap-start cursor-pointer group">
-                            <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{op.title}</h4>
-                            <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2">{op.desc}</p>
-                            <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {op.due}</div>
-                            <div className="mb-4"><span className={`px-2 py-1 rounded text-[10px] font-bold ${op.color}`}>Event: {op.event}</span></div>
-                            <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
-                                <span className="text-xs font-medium">Click to View</span>
-                                <ChevronRight size={14} />
+                    ) : volunteerOps.map(op => {
+                        const isFull = op.is_full === true;
+                        const volunteerCount = op.volunteer_count || 0;
+                        const maxVolunteers = op.max_volunteers || 5;
+                        
+                        return (
+                            <div key={op.id} onClick={() => setSelectedVolunteerTask(op)} className={`min-w-[320px] bg-white p-5 rounded-xl border flex flex-col hover:shadow-md transition-all snap-start cursor-pointer group ${isFull ? 'border-gray-200 opacity-75' : 'border-gray-100 shadow-sm'}`}>
+                                <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{op.title}</h4>
+                                <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2">{op.desc}</p>
+                                
+                                {/* Volunteer Counter */}
+                                <div className="mb-3 p-2 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-xs font-medium text-gray-600">Volunteers</span>
+                                        <span className={`text-xs font-bold ${isFull ? 'text-red-600' : 'text-teal-600'}`}>
+                                            {volunteerCount} of {maxVolunteers}
+                                        </span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-gray-300 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all ${isFull ? 'bg-red-500' : 'bg-teal-500'}`}
+                                            style={{ width: `${(volunteerCount / maxVolunteers) * 100}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {op.due}</div>
+                                <div className="mb-4"><span className={`px-2 py-1 rounded text-[10px] font-bold ${op.color}`}>Event: {op.event}</span></div>
+                                <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
+                                    <span className="text-xs font-medium">Click to View</span>
+                                    <ChevronRight size={14} />
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </ScrollSection>
 
                 {/* EVENTS (Live from DB) */}

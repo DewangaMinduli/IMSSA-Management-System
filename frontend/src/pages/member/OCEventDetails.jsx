@@ -30,7 +30,7 @@ const OCEventDetails = () => {
 
     const [showTaskModal, setShowTaskModal] = useState(false);
     const [editTaskId, setEditTaskId] = useState(null);
-    const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
+    const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [], volunteer_limit: 5 });
     const [taskAssignInputValue, setTaskAssignInputValue] = useState('');
 
     const [showOcModal, setShowOcModal] = useState(false);
@@ -99,7 +99,7 @@ const OCEventDetails = () => {
                 if (res.ok) {
                     setShowTaskModal(false);
                     setEditTaskId(null);
-                    setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
+                    setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [], volunteer_limit: 5 });
                     setTaskAssignInputValue('');
                     fetchEventDetails();
                 } else {
@@ -118,7 +118,7 @@ const OCEventDetails = () => {
                 });
                 if (res.ok) {
                     setShowTaskModal(false);
-                    setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [] });
+                    setNewTask({ title: '', description: '', priority: 'High', deadline: '', assignedTo: [], is_volunteer_opportunity: false, proof_type: 'None', skills: [], volunteer_limit: 5 });
                     setTaskAssignInputValue('');
                     fetchEventDetails();
                 } else {
@@ -478,16 +478,21 @@ const OCEventDetails = () => {
                                         <button 
                                             onClick={() => {
                                                 setEditTaskId(task.id);
+                                                // Parse volunteer limit from description (format: <!--VL:N-->)
+                                                const volMatch = task.description?.match(/<!--VL:(\d+)-->/);
+                                                const volLimit = volMatch ? parseInt(volMatch[1]) : 5;
+                                                const cleanDesc = task.description?.replace(/<!--VL:\d+-->/, '') || '';
                                                 setNewTask({
                                                     title: task.title || '',
-                                                    description: task.description || '',
+                                                    description: cleanDesc,
                                                     priority: task.priority || 'Medium',
                                                     deadline: task.deadline ? task.deadline.split('T')[0] : '',
                                                     assignedTo: task.assignedStudentNumbers ? task.assignedStudentNumbers.split(',').map(s => s.trim()) : [],
                                                     is_volunteer_opportunity: !!task.is_volunteer_opportunity,
                                                     proof_type: task.proof_type || 'None',
                                                     status: task.status || 'Pending',
-                                                    skills: task.skills || []
+                                                    skills: task.skills || [],
+                                                    volunteer_limit: volLimit
                                                 });
                                                 setShowTaskModal(true);
                                             }}
@@ -940,6 +945,21 @@ const OCEventDetails = () => {
                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                 </label>
                             </div>
+
+                            {newTask.is_volunteer_opportunity && (
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 block">Max Volunteers Needed</label>
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max="50"
+                                        value={newTask.volunteer_limit}
+                                        onChange={e => setNewTask({ ...newTask, volunteer_limit: parseInt(e.target.value) || 1 })}
+                                        className="w-24 border border-gray-200 p-2 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors"
+                                    />
+                                    <p className="text-xs text-gray-400">Set how many people can volunteer for this task</p>
+                                </div>
+                            )}
 
                             {!newTask.is_volunteer_opportunity && (
                                 <div className="space-y-2">
