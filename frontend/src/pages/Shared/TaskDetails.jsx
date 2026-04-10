@@ -198,7 +198,7 @@ const TaskDetails = () => {
                                 </div>
                             )}
 
-                            {['Assigned', 'In_Progress', 'Rejected'].includes(assignment.assignment_status) && (
+                            {['Assigned', 'In_Progress', 'Rejected'].includes(assignment.assignment_status) && assignment.proof_type !== 'None' && (
                                 <FileUploadForm
                                     taskId={taskId}
                                     assignmentId={assignmentId}

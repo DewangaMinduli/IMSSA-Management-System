@@ -347,7 +347,11 @@ const JuniorTreasurerDashboard = () => {
                 {/* 7. MY TASKS */}
                 <ScrollSection id="my-tasks" title="My Tasks">
                     {myTasks.map(task => (
-                        <div key={task.id} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start">
+                        <div 
+                            key={task.id} 
+                            onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}`)}
+                            className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start"
+                        >
                             <h4 className="font-bold text-gray-800 text-sm mb-2">{task.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-grow">{task.desc}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
