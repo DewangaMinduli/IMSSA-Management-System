@@ -208,6 +208,21 @@ const TaskDetails = () => {
                                 />
                             )}
 
+                            {/* Notes panel for tasks with no submission required */}
+                            {isAssignee && assignment.proof_type === 'None' && ['Assigned', 'In_Progress'].includes(assignment.assignment_status) && (
+                                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
+                                    <p className="text-sm text-gray-500 mb-4">Add any notes or updates about this task. No submission is required.</p>
+                                    <textarea
+                                        value={assignment.notes || ''}
+                                        onChange={(e) => {/* TODO: Save notes */}}
+                                        placeholder="Add notes here..."
+                                        rows={4}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
+                                    />
+                                </div>
+                            )}
+
                             {assignment.assignment_status === 'Submitted' && (
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                                     <div className="flex gap-3">
@@ -280,6 +295,7 @@ const TaskDetails = () => {
                             assignmentId={assignmentId}
                             currentUserId={user?.id}
                             currentUserRole={user?.role}
+                            isAssignee={isAssignee}
                             comments={comments}
                             onSubmitComment={handleCommentAdded}
                             isLoading={false}

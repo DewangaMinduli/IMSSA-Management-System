@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Send, MessageCircle, User } from 'lucide-react';
 
-const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, comments = [], onSubmitComment, isLoading = false }) => {
+const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, isAssignee = false, comments = [], onSubmitComment, isLoading = false }) => {
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const isOC = currentUserRole === 'Organizing_Committee' || currentUserRole === 'oc';
     const isExec = currentUserRole === 'Executive' || currentUserRole === 'executive' || currentUserRole === 'Executive_Board';
-    const canComment = isOC || isExec;
+    const canComment = isOC || isExec || isAssignee;
 
     const handleSubmitComment = async (e) => {
         e.preventDefault();
