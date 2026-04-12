@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const notificationHelper = require('../utils/notificationHelper');
 
 // --- GET OWN PROFILE ---
 exports.getProfile = async (req, res) => {
@@ -102,6 +103,13 @@ exports.rolloverTerm = async (req, res) => {
              WHERE hierarchy_level < 4 AND account_status = 'Active'`
         );
 
+        // Send notification to all users about term handover
+        try {
+            await notificationHelper.notifyTermHandover();
+        } catch (notifyErr) {
+            console.error('[rolloverTerm] Notification error:', notifyErr);
+        }
+
         res.json({ message: "Term Rollover Successful. Students upgraded and graduating class archived." });
     } catch (error) {
         console.error("Error executing term rollover:", error);
@@ -170,18 +178,37 @@ exports.getRecommendationRequests = async (req, res) => {
 // --- SUBMIT LETTER REQUEST ---
 exports.submitLetterRequest = async (req, res) => {
     try {
-        const { student_user_id, lecturer_user_id, purpose, recipient_name, company_name } = req.body;
-        if (!student_user_id || !lecturer_user_id || !purpose || !recipient_name || !company_name) {
-            return res.status(400).json({ message: 'All fields are required' });
-        }
-        await db.execute(
-            'INSERT INTO letter_request (student_user_id, lecturer_user_id, purpose, recipient_name, company_name, status) VALUES (?, ?, ?, ?, ?, ?)',
-            [student_user_id, lecturer_user_id, purpose, recipient_name, company_name, 'Pending']
+        const { requested_from, purpose, relationship_details } = req.body;
+        const user_id = req.user_id || req.body.user_id;
+
+        const [result] = await db.execute(
+            'INSERT INTO recommendation_letter_request (user_id, requested_from, purpose, relationship_details) VALUES (?, ?, ?, ?)',
+            [user_id, requested_from, purpose, relationship_details]
         );
-        res.status(201).json({ message: 'Request submitted successfully' });
+
+        // Send notification to lecturer and Senior Treasurer
+        try {
+            // Get student name for notification
+            const [studentRows] = await db.execute(
+                'SELECT name FROM user WHERE user_id = ?',
+                [user_id]
+            );
+            const studentName = studentRows[0]?.name || 'A student';
+            
+            await notificationHelper.notifyLetterRequested(
+                result.insertId,
+                requested_from,
+                studentName,
+                purpose
+            );
+        } catch (notifyErr) {
+            console.error('[submitLetterRequest] Notification error:', notifyErr);
+        }
+
+        res.status(201).json({ message: 'Request submitted successfully', request_id: result.insertId });
     } catch (error) {
         console.error('Error submitting letter request:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        res.status(500).json({ message: 'Server Error' });
     }
 };
 

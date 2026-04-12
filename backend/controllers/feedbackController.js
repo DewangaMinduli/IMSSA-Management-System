@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const notificationHelper = require('../utils/notificationHelper');
 
 exports.createFeedback = async (req, res) => {
     try {
@@ -6,6 +7,14 @@ exports.createFeedback = async (req, res) => {
         if (!message) return res.status(400).json({ message: "Message is required" });
         
         await db.execute('INSERT INTO feedback (message) VALUES (?)', [message]);
+        
+        // Send notification to Academic Staff and Senior Treasurer
+        try {
+            await notificationHelper.notifyAnonymousFeedbackSubmitted();
+        } catch (notifyErr) {
+            console.error('[createFeedback] Notification error:', notifyErr);
+        }
+        
         res.status(201).json({ message: "Feedback submitted anonymously" });
     } catch (error) {
         console.error("Error creating feedback:", error);

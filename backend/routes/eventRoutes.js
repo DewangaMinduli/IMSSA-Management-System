@@ -59,10 +59,11 @@ router.get('/notifications', async (req, res) => {
         const { user_id, limit = 20, unread_only } = req.query;
         if (!user_id) return res.status(400).json({ message: 'user_id is required' });
         
-        const notifications = await notificationService.getNotifications(user_id, parseInt(limit), unread_only === 'true');
+        const notifications = await notificationService.getNotifications(parseInt(user_id), parseInt(limit), unread_only === 'true');
         res.json(notifications);
     } catch (err) {
-        res.status(500).json({ message: 'Server Error' });
+        console.error('[Notifications Route] Error:', err);
+        res.status(500).json({ message: 'Server Error', error: err.message });
     }
 });
 
@@ -71,35 +72,16 @@ router.get('/notifications/unread-count', async (req, res) => {
         const { user_id } = req.query;
         if (!user_id) return res.status(400).json({ message: 'user_id is required' });
         
-        const count = await notificationService.getUnreadCount(user_id);
+        const count = await notificationService.getUnreadCount(parseInt(user_id));
         res.json({ unread_count: count });
     } catch (err) {
-        res.status(500).json({ message: 'Server Error' });
+        console.error('[Unread Count Route] Error:', err);
+        res.status(500).json({ message: 'Server Error', error: err.message });
     }
 });
 
-router.patch('/notifications/:notificationId/read', async (req, res) => {
-    try {
-        const { notificationId } = req.params;
-        const success = await notificationService.markAsRead(notificationId);
-        res.json({ success });
-    } catch (err) {
-        res.status(500).json({ message: 'Server Error' });
-    }
-});
-
-router.patch('/notifications/read-all', async (req, res) => {
-    try {
-        const { user_id } = req.body;
-        if (!user_id) return res.status(400).json({ message: 'user_id is required' });
-        
-        const count = await notificationService.markAllAsRead(user_id);
-        res.json({ marked_as_read: count });
-    } catch (err) {
-        res.status(500).json({ message: 'Server Error' });
-    }
-});
-
+router.patch('/notifications/:notificationId/read', eventController.markNotificationAsRead);
+router.patch('/notifications/read-all', eventController.markAllNotificationsAsRead);
 
 // Timeline
 router.post('/:id/timeline', eventController.addTimelineEvent);

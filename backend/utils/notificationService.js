@@ -23,19 +23,28 @@ exports.createNotification = async (userId, title, message, type = 'SYSTEM', rel
 // Get notifications for user
 exports.getNotifications = async (userId, limit = 20, unreadOnly = false) => {
     try {
+        // Convert parameters to integers
+        const userIdInt = parseInt(userId, 10);
+        const limitInt = parseInt(limit, 10);
+
+        if (isNaN(userIdInt)) {
+            console.error('[NotificationService] Invalid userId:', userId);
+            return [];
+        }
+
         let query = `
             SELECT notification_id, title, message, type, is_read, created_at
             FROM notification
             WHERE user_id = ?
         `;
-        const params = [userId];
+        const params = [userIdInt];
 
         if (unreadOnly) {
             query += ` AND is_read = 0`;
         }
 
         query += ` ORDER BY created_at DESC LIMIT ?`;
-        params.push(limit);
+        params.push(limitInt);
 
         const [notifications] = await db.execute(query, params);
         return notifications;
@@ -48,9 +57,12 @@ exports.getNotifications = async (userId, limit = 20, unreadOnly = false) => {
 // Mark notification as read
 exports.markAsRead = async (notificationId) => {
     try {
+        const notificationIdInt = parseInt(notificationId, 10);
+        if (isNaN(notificationIdInt)) return false;
+        
         const [result] = await db.execute(
             `UPDATE notification SET is_read = 1 WHERE notification_id = ?`,
-            [notificationId]
+            [notificationIdInt]
         );
         return result.affectedRows > 0;
     } catch (err) {
@@ -62,9 +74,12 @@ exports.markAsRead = async (notificationId) => {
 // Mark all notifications as read for user
 exports.markAllAsRead = async (userId) => {
     try {
+        const userIdInt = parseInt(userId, 10);
+        if (isNaN(userIdInt)) return 0;
+        
         const [result] = await db.execute(
             `UPDATE notification SET is_read = 1 WHERE user_id = ? AND is_read = 0`,
-            [userId]
+            [userIdInt]
         );
         return result.affectedRows;
     } catch (err) {
@@ -76,9 +91,12 @@ exports.markAllAsRead = async (userId) => {
 // Get unread count
 exports.getUnreadCount = async (userId) => {
     try {
+        const userIdInt = parseInt(userId, 10);
+        if (isNaN(userIdInt)) return 0;
+        
         const [result] = await db.execute(
             `SELECT COUNT(*) as unread_count FROM notification WHERE user_id = ? AND is_read = 0`,
-            [userId]
+            [userIdInt]
         );
         return result[0]?.unread_count || 0;
     } catch (err) {

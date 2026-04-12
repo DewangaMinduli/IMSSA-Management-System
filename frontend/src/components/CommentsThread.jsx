@@ -11,9 +11,14 @@ const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, 
 
     const handleSubmitComment = async (e) => {
         e.preventDefault();
-        if (!newComment.trim()) return;
+        if (!newComment.trim() || isSubmitting) return;
 
+        const commentText = newComment.trim();
         setIsSubmitting(true);
+        
+        // Optimistically clear input immediately for better UX
+        setNewComment('');
+        
         try {
             const response = await fetch(
                 `http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/comments`,
@@ -22,19 +27,32 @@ const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, 
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         user_id: currentUserId,
-                        text: newComment.trim()
+                        text: commentText
                     })
                 }
             );
 
             if (response.ok) {
-                setNewComment('');
+                const result = await response.json();
+                console.log('[CommentsThread] Comment posted successfully:', result);
+                
+                // Notify parent to refresh comments
                 if (onSubmitComment) {
                     onSubmitComment();
                 }
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('[CommentsThread] Failed to post comment:', errorData);
+                // Restore the comment text so user can try again
+                setNewComment(commentText);
+                const errorMsg = errorData.error || errorData.sqlMessage || errorData.message || 'Unknown error';
+                alert(`Failed to post comment: ${errorMsg}`);
             }
         } catch (err) {
-            console.error('Error submitting comment:', err);
+            console.error('[CommentsThread] Error submitting comment:', err);
+            // Restore the comment text so user can try again
+            setNewComment(commentText);
+            alert('Network error. Please check your connection and try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -120,7 +138,7 @@ const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, 
                                 className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
                             >
                                 <Send size={16} />
-                                Post Feedback
+                                Post
                             </button>
                         </div>
                     </form>

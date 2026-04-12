@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const notificationHelper = require('../utils/notificationHelper');
 
 // Get Dashboard Summary (Accounts & Recent Transactions)
 exports.getDashboardSummary = async (req, res) => {
@@ -58,6 +59,21 @@ exports.addTransaction = async (req, res) => {
         );
 
         await connection.commit();
+        
+        // Send notification to Senior Treasurer
+        try {
+            if (event_id && amount) {
+                const [eventRows] = await db.execute(
+                    'SELECT title FROM event WHERE event_id = ?',
+                    [event_id]
+                );
+                const eventName = eventRows.length > 0 ? eventRows[0].title : 'Unknown Event';
+                await notificationHelper.notifyTransactionRecorded(event_id, eventName, amount, recordedById);
+            }
+        } catch (notifyErr) {
+            console.error('[addTransaction] Notification error:', notifyErr);
+        }
+        
         res.status(201).json({ message: 'Transaction recorded', id: result.insertId });
 
     } catch (error) {
@@ -99,8 +115,20 @@ exports.getEventBudgets = async (req, res) => {
 // Approve Transaction
 exports.approveTransaction = async (req, res) => {
     const { id } = req.params;
+    const approverId = req.body.user_id || req.body.approved_by;
     
     try {
+        // Get transaction details before approving
+        const [transactionRows] = await db.execute(
+            `SELECT t.*, e.title as event_name 
+             FROM transaction t 
+             LEFT JOIN event e ON t.event_id = e.event_id 
+             WHERE t.transaction_id = ?`,
+            [id]
+        );
+        
+        const transaction = transactionRows[0];
+        
         const [result] = await db.execute(
             "UPDATE transaction SET status = 'Approved' WHERE transaction_id = ?",
             [id]
@@ -108,6 +136,20 @@ exports.approveTransaction = async (req, res) => {
         
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Transaction not found or already processed' });
+        }
+        
+        // Send notification to Junior Treasurer (who recorded the transaction)
+        if (transaction && transaction.recorded_by) {
+            try {
+                await notificationHelper.notifyTransactionVerified(
+                    transaction.event_id, 
+                    transaction.event_name || 'Unknown Event', 
+                    approverId,
+                    transaction.recorded_by
+                );
+            } catch (notifyErr) {
+                console.error('[approveTransaction] Notification error:', notifyErr);
+            }
         }
         
         res.json({ message: 'Transaction successfully approved' });

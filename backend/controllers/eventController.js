@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const notificationHelper = require('../utils/notificationHelper');
 
 exports.getAllEvents = async (req, res) => {
     try {
@@ -238,6 +239,14 @@ exports.createEvent = async (req, res) => {
         }
 
         await connection.commit();
+        
+        // Send notification to all users about new event
+        try {
+            await notificationHelper.notifyNewEventCreated(newEventId, event_name, created_by_user_id);
+        } catch (notifyErr) {
+            console.error('[createEvent] Notification error:', notifyErr);
+        }
+        
         res.status(201).json({ message: 'Event created successfully', event_id: newEventId });
 
     } catch (err) {
@@ -828,6 +837,14 @@ exports.volunteerForTask = async (req, res) => {
             [taskId, user_id]
         );
 
+        // Send notification to OC and Exec members
+        try {
+            await notificationHelper.notifyVolunteerApplied(taskId, user_id);
+        } catch (notifyErr) {
+            console.error('[volunteerForTask] Notification error:', notifyErr);
+            // Don't fail the request if notification fails
+        }
+
         res.json({ 
             message: 'Successfully volunteered for task!',
             assignment_status: 'Assigned',
@@ -873,17 +890,24 @@ exports.getTaskAssignmentDetails = async (req, res) => {
 exports.submitTaskAssignment = async (req, res) => {
     try {
         const { taskId, assignmentId } = req.params;
-        const { submission_text } = req.body;
-        
-        await db.execute(`
-            UPDATE task_assignment 
-            SET submission_text = ?, status = 'Submitted' 
-            WHERE assignment_id = ? AND task_id = ?
-        `, [submission_text || null, assignmentId, taskId]);
-        
+        const { submission_text, user_id } = req.body;
+
+        await db.execute(
+            `UPDATE task_assignment SET submission_text = ?, status = 'Submitted', submitted_at = NOW() WHERE assignment_id = ?`,
+            [submission_text, assignmentId]
+        );
+
+        // Send notification to OC and Exec members
+        if (user_id) {
+            try {
+                await notificationHelper.notifyTaskSubmitted(taskId, user_id);
+            } catch (notifyErr) {
+                console.error('[submitTaskAssignment] Notification error:', notifyErr);
+            }
+        }
+
         res.json({ message: 'Task submitted successfully' });
     } catch (err) {
-        console.error("Error submitting task:", err);
         res.status(500).json({ message: 'Server Error' });
     }
 };
@@ -1019,16 +1043,130 @@ exports.addComment = async (req, res) => {
         const { assignmentId } = req.params;
         const { user_id, text } = req.body;
         
-        if (!user_id || !text) return res.status(400).json({ message: 'user_id and text are required.' });
+        console.log(`[addComment] Received request: assignmentId=${assignmentId}, user_id=${user_id}`);
+        
+        if (!user_id || !text) {
+            console.log('[addComment] Missing user_id or text');
+            return res.status(400).json({ message: 'user_id and text are required.' });
+        }
 
-        const [result] = await db.execute(
-            `INSERT INTO task_comment (assignment_id, user_id, comment_text) VALUES (?, ?, ?)`,
-            [assignmentId, user_id, text]
-        );
+        // Insert comment
+        console.log(`[addComment] Inserting comment into task_comment table...`);
+        let result;
+        try {
+            [result] = await db.execute(
+                `INSERT INTO task_comment (assignment_id, user_id, comment_text) VALUES (?, ?, ?)`,
+                [assignmentId, user_id, text]
+            );
+            console.log(`[addComment] Comment inserted successfully, comment_id: ${result.insertId}`);
+        } catch (insertErr) {
+            console.error('[addComment] ERROR inserting comment:', insertErr);
+            throw insertErr;
+        }
+
+        // Get task and assignment details for notifications
+        console.log(`[addComment] Fetching assignment details for notifications...`);
+        let assignmentDetails;
+        try {
+            [assignmentDetails] = await db.execute(
+                `SELECT 
+                    ta.task_id, ta.assigned_to, ta.event_id,
+                    t.title as task_title,
+                    e.title as event_title,
+                    u.name as commenter_name, u.user_type as commenter_role
+                 FROM task_assignment ta
+                 JOIN task t ON ta.task_id = t.task_id
+                 JOIN event e ON ta.event_id = e.event_id
+                 JOIN user u ON u.user_id = ?
+                 WHERE ta.assignment_id = ?`,
+                [user_id, assignmentId]
+            );
+            console.log(`[addComment] Found ${assignmentDetails.length} assignment details`);
+        } catch (queryErr) {
+            console.error('[addComment] ERROR fetching assignment details:', queryErr);
+            // Continue without notifications if this fails
+            assignmentDetails = [];
+        }
+
+        if (assignmentDetails.length > 0) {
+            const { task_id, assigned_to, event_id, task_title, event_title, commenter_name, commenter_role } = assignmentDetails[0];
+            
+            const isOC = commenter_role === 'Organizing_Committee' || commenter_role === 'oc';
+            const isExec = ['Executive', 'executive', 'Executive_Board', 'Junior_Treasurer', 'President'].includes(commenter_role);
+            const isMember = !isOC && !isExec;
+
+            console.log(`[addComment] Commenter: ${commenter_name} (ID: ${user_id}), Role: ${commenter_role}, isOC: ${isOC}, isExec: ${isExec}, isMember: ${isMember}`);
+            console.log(`[addComment] Task: ${task_title}, Event ID: ${event_id}, Assigned to: ${assigned_to}`);
+
+            // Get OC members for this event (from event_team table)
+            const [ocMembers] = await db.execute(
+                `SELECT DISTINCT et.user_id 
+                 FROM event_team et
+                 JOIN user u ON et.user_id = u.user_id
+                 WHERE et.event_id = ? 
+                   AND (u.user_type = 'Organizing_Committee' OR u.user_type = 'oc' OR u.role_name = 'Organizing_Committee')`,
+                [event_id]
+            );
+            console.log(`[addComment] Found ${ocMembers.length} OC members for event ${event_id}:`, ocMembers.map(m => m.user_id));
+
+            // Get all Exec members (including Jr Treasurer and President)
+            const [execMembers] = await db.execute(
+                `SELECT user_id FROM user 
+                 WHERE user_type IN ('Executive', 'executive', 'Executive_Board', 'Junior_Treasurer', 'President')
+                    OR role_name IN ('Executive', 'Junior_Treasurer', 'President')`
+            );
+            console.log(`[addComment] Found ${execMembers.length} Exec members:`, execMembers.map(m => m.user_id));
+
+            // Combine OC and Exec members
+            const ocAndExecIds = [...ocMembers, ...execMembers].map(u => u.user_id);
+            const uniqueNotifyUsers = [...new Set(ocAndExecIds)];
+            console.log(`[addComment] Unique OC+Exec users to notify:`, uniqueNotifyUsers);
+            
+            // Send notifications to ALL OC and Exec members (except the commenter)
+            try {
+                for (const notifyUserId of uniqueNotifyUsers) {
+                    if (notifyUserId != user_id) { // Don't notify the commenter
+                        const message = isMember 
+                            ? `${commenter_name} asked a question on "${task_title}"`
+                            : `${commenter_name} commented on "${task_title}"`;
+                        
+                        await db.execute(
+                            `INSERT INTO notification (user_id, type, title, message, is_read, created_at) 
+                             VALUES (?, 'TASK', ?, ?, 0, NOW())`,
+                            [notifyUserId, 'New Comment', message]
+                        );
+                        console.log(`[addComment] Notification sent to OC/Exec user ${notifyUserId}`);
+                    }
+                }
+                
+                // If OC/Exec commented, ALSO notify the assigned member (if different from commenter and not already an OC/Exec)
+                if ((isOC || isExec) && assigned_to && assigned_to != user_id) {
+                    const isAssignedUserInOcExec = uniqueNotifyUsers.includes(parseInt(assigned_to));
+                    if (!isAssignedUserInOcExec) {
+                        const roleLabel = isOC ? 'Organizing Committee' : (commenter_role === 'Junior_Treasurer' ? 'Junior Treasurer' : (commenter_role === 'President' ? 'President' : 'Executive Board'));
+                        await db.execute(
+                            `INSERT INTO notification (user_id, type, title, message, is_read, created_at) 
+                             VALUES (?, 'TASK', ?, ?, 0, NOW())`,
+                            [assigned_to, 'New Comment', `${roleLabel} commented on your task "${task_title}"`]
+                        );
+                        console.log(`[addComment] Additional notification sent to assigned member ${assigned_to}`);
+                    } else {
+                        console.log(`[addComment] Assigned member ${assigned_to} is already in OC/Exec list, skipping duplicate`);
+                    }
+                }
+                
+                console.log(`[addComment] Notification process complete.`);
+            } catch (notifyErr) {
+                console.error('[addComment] Notification error (comment still posted):', notifyErr);
+                // Don't fail the comment post if notifications fail
+            }
+        }
+
         res.status(201).json({ message: 'Comment added', comment_id: result.insertId });
     } catch (err) {
-        console.error("Error adding comment:", err);
-        res.status(500).json({ message: 'Server Error' });
+        console.error("[addComment] Error adding comment:", err);
+        console.error("[addComment] Error stack:", err.stack);
+        res.status(500).json({ message: 'Server Error', error: err.message, sqlMessage: err.sqlMessage });
     }
 };
 
@@ -1233,6 +1371,73 @@ exports.getTasksToApprove = async (req, res) => {
         res.json(tasks);
     } catch (err) {
         console.error("Error fetching tasks to approve:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// Notification handlers
+exports.getNotifications = async (req, res) => {
+    try {
+        const { user_id, limit = 20 } = req.query;
+        if (!user_id) return res.status(400).json({ message: 'user_id required' });
+
+        const [notifications] = await db.execute(
+            `SELECT * FROM notification 
+             WHERE user_id = ? 
+             ORDER BY created_at DESC 
+             LIMIT ?`,
+            [user_id, parseInt(limit)]
+        );
+        res.json(notifications);
+    } catch (err) {
+        console.error("Error fetching notifications:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.getUnreadCount = async (req, res) => {
+    try {
+        const { user_id } = req.query;
+        if (!user_id) return res.status(400).json({ message: 'user_id required' });
+
+        const [result] = await db.execute(
+            `SELECT COUNT(*) as unread_count FROM notification 
+             WHERE user_id = ? AND is_read = 0`,
+            [user_id]
+        );
+        res.json({ unread_count: result[0].unread_count });
+    } catch (err) {
+        console.error("Error fetching unread count:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.markNotificationAsRead = async (req, res) => {
+    try {
+        const { notificationId } = req.params;
+        await db.execute(
+            `UPDATE notification SET is_read = 1 WHERE notification_id = ?`,
+            [notificationId]
+        );
+        res.json({ message: 'Notification marked as read' });
+    } catch (err) {
+        console.error("Error marking notification as read:", err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+exports.markAllNotificationsAsRead = async (req, res) => {
+    try {
+        const { user_id } = req.body;
+        if (!user_id) return res.status(400).json({ message: 'user_id required' });
+
+        await db.execute(
+            `UPDATE notification SET is_read = 1 WHERE user_id = ? AND is_read = 0`,
+            [user_id]
+        );
+        res.json({ message: 'All notifications marked as read' });
+    } catch (err) {
+        console.error("Error marking all notifications as read:", err);
         res.status(500).json({ message: 'Server Error' });
     }
 };

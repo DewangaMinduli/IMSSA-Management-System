@@ -93,12 +93,21 @@ const TaskDetails = () => {
         }
     };
 
-    const handleCommentAdded = () => {
-        // Refresh comments
-        fetch(`http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/comments`)
-            .then(r => r.ok ? r.json() : [])
-            .then(data => setComments(data || []))
-            .catch(err => console.error('Error fetching comments:', err));
+    const handleCommentAdded = async () => {
+        // Refresh comments after new comment is added
+        console.log('[TaskDetails] Refreshing comments after new comment...');
+        try {
+            const res = await fetch(`http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/comments`);
+            if (res.ok) {
+                const data = await res.json();
+                console.log('[TaskDetails] Comments refreshed:', data);
+                setComments(data || []);
+            } else {
+                console.error('[TaskDetails] Failed to refresh comments:', res.status);
+            }
+        } catch (err) {
+            console.error('[TaskDetails] Error refreshing comments:', err);
+        }
     };
 
     if (isLoading) {
