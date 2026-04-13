@@ -9,7 +9,7 @@ import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import MemberDashboard from './pages/member/MemberDashboard';
 import OrganizingCommitteeDashboard from './pages/member/OrganizingCommitteeDashboard';
-import OCEventDetails from './pages/member/OCEventDetails';
+import UnifiedEventDetails from './pages/Shared/UnifiedEventDetails';
 import MemberProfile from './pages/member/MemberProfile';
 import MemberFeedback from './pages/member/MemberFeedback';
 import MemberRequestLetter from './pages/member/MemberRequestLetter';
@@ -21,7 +21,6 @@ import SeniorTreasurerDashboard from './pages/academic-staff/SeniorTreasurerDash
 import AcademicFeedback from './pages/academic-staff/AcademicFeedback';
 import CreateEvent from './pages/executive/CreateEvent';
 import NominateTerm from './pages/executive/NominateTerm';
-import EventDetails from './pages/Shared/EventDetails';
 import TaskDetails from './pages/Shared/TaskDetails';
 
 // --- THE "FIXED FRAME" LAYOUT ---
@@ -59,14 +58,14 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify" element={<VerifyEmail />} />
 
-          <Route path="/events/:eventId" element={<EventDetails />} />
+          <Route path="/events/:eventId" element={<UnifiedEventDetails />} />
           <Route path="/tasks/:taskId" element={<TaskDetails />} />
 
           <Route path="/member/*" element={
             <Layout>
               <Routes>
                 <Route path="oc-dashboard" element={<OrganizingCommitteeDashboard />} />
-                <Route path="event/:eventId" element={<OCEventDetails />} />
+                <Route path="event/:eventId" element={<UnifiedEventDetails />} />
                 <Route path="dashboard" element={<MemberDashboard />} />
                 <Route path="profile" element={<MemberProfile />} />
                 <Route path="feedback" element={<MemberFeedback />} />
@@ -85,6 +84,7 @@ export default function App() {
                 <Route path="junior-treasurer-dashboard" element={<JuniorTreasurerDashboard />} />
                 <Route path="create-event" element={<CreateEvent />} />
                 <Route path="nominate-term" element={<NominateTerm />} />
+                <Route path="event/:eventId" element={<UnifiedEventDetails />} />
                 <Route path="tasks/:taskId/:assignmentId" element={<TaskDetails />} />
                 <Route path="*" element={<div>Exec 404</div>} />
               </Routes>

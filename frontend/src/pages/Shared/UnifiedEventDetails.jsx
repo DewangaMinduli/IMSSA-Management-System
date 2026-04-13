@@ -5,7 +5,8 @@ import EditEventModal from '../../components/EditEventModal';
 import { useAuth } from '../../context/AuthContext';
 import { Bell, Home } from 'lucide-react';
 import UserDropdown from '../../components/UserDropdown';
-const OCEventDetails = () => {
+
+const UnifiedEventDetails = () => {
     const { eventId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -303,8 +304,12 @@ const OCEventDetails = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const isExecutive = user?.hierarchy_level >= 4 || user?.user_type === 'Executive' || user?.role_name === 'Junior Treasurer' || user?.role_name === 'Junior_Treasurer';
+    const isExecutive = user?.hierarchy_level >= 4 || user?.user_type === 'Executive' || user?.role_name === 'Junior Treasurer' || user?.role_name === 'Junior_Treasurer' || user?.role_name === 'President';
     const isPresident = user?.role_name === 'President';
+    
+    const [isOC, setIsOC] = useState(false);
+    const canManage = isExecutive || isOC;
+    const isReadOnly = !canManage;
 
     const [editingId, setEditingId] = useState(null);
 
@@ -319,14 +324,22 @@ const OCEventDetails = () => {
     const fetchEventDetails = async () => {
         try {
             const res = await fetch(`http://localhost:5000/api/events/${eventId}/details`);
-            if (res.ok) setData(await res.json());
+            if (res.ok) {
+                const fetchedData = await res.json();
+                setData(fetchedData);
+                // Check if user is in OC
+                if (fetchedData.committee) {
+                    const found = fetchedData.committee.some(c => c.id === user?.student_no);
+                    setIsOC(found);
+                }
+            }
         } catch (err) { }
         finally { setLoading(false); }
     };
 
     useEffect(() => {
         fetchEventDetails();
-    }, [eventId]);
+    }, [eventId, user]);
 
 
 
@@ -357,21 +370,23 @@ const OCEventDetails = () => {
         <div>
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-gray-800">Event Description</h3>
-                <button 
-                    onClick={() => { 
-                        setEditOverviewData({ 
-                            event_name: event.event_name, 
-                            description: event.description || '', 
-                            venue: event.venue || '', 
-                            start_date: event.start_date ? event.start_date.split('T')[0] : '', 
-                            end_date: event.end_date ? event.end_date.split('T')[0] : '' 
-                        }); 
-                        setShowOverviewModal(true); 
-                    }} 
-                    className="bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-2"
-                >
-                    <Edit2 size={16} /> Edit Overview
-                </button>
+                {canManage && (
+                    <button 
+                        onClick={() => { 
+                            setEditOverviewData({ 
+                                event_name: event.event_name, 
+                                description: event.description || '', 
+                                venue: event.venue || '', 
+                                start_date: event.start_date ? event.start_date.split('T')[0] : '', 
+                                end_date: event.end_date ? event.end_date.split('T')[0] : '' 
+                            }); 
+                            setShowOverviewModal(true); 
+                        }} 
+                        className="bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-2"
+                    >
+                        <Edit2 size={16} /> Edit Overview
+                    </button>
+                )}
             </div>
             
             <div className="bg-gradient-to-br from-indigo-50 via-white to-teal-50 rounded-xl p-8 border border-gray-100 shadow-sm relative overflow-hidden">
@@ -412,9 +427,11 @@ const OCEventDetails = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-gray-800">Task Summary</h3>
-                <button onClick={() => setShowTaskModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
-                    <Plus size={16} /> Add Task
-                </button>
+                {canManage && (
+                    <button onClick={() => setShowTaskModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
+                        <Plus size={16} /> Add Task
+                    </button>
+                )}
             </div>
             <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm text-left">
@@ -455,60 +472,64 @@ const OCEventDetails = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2">
-                                        <select 
-                                            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none text-gray-700 focus:ring-1 focus:ring-blue-500 transition-all bg-white shadow-sm" 
-                                            value={task.status || 'Pending'}
-                                            onChange={(e) => {
-                                                const newStatus = e.target.value;
-                                                fetch(`http://localhost:5000/api/events/${eventId}/tasks/${task.id}`, {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-                                                    body: JSON.stringify({ status: newStatus })
-                                                }).then(res => { if(res.ok) fetchEventDetails(); });
-                                            }}
-                                        >
-                                            <option value="Pending">Pending</option>
-                                            <option value="In Progress">In Progress</option>
-                                            <option value="Submitted">Submitted</option>
-                                            <option value="Approved">Approved</option>
-                                            <option value="Declined">Declined</option>
-                                            <option value="Cancelled">Cancelled</option>
-                                        </select>
-                                        <button 
-                                            onClick={() => {
-                                                setEditTaskId(task.id);
-                                                // Parse volunteer limit from description (format: <!--VL:N-->)
-                                                const volMatch = task.description?.match(/<!--VL:(\d+)-->/);
-                                                const volLimit = volMatch ? parseInt(volMatch[1]) : 5;
-                                                const cleanDesc = task.description?.replace(/<!--VL:\d+-->/, '') || '';
-                                                setNewTask({
-                                                    title: task.title || '',
-                                                    description: cleanDesc,
-                                                    priority: task.priority || 'Medium',
-                                                    deadline: task.deadline ? task.deadline.split('T')[0] : '',
-                                                    assignedTo: task.assignedStudentNumbers ? task.assignedStudentNumbers.split(',').map(s => s.trim()) : [],
-                                                    is_volunteer_opportunity: !!task.is_volunteer_opportunity,
-                                                    proof_type: task.proof_type || 'None',
-                                                    status: task.status || 'Pending',
-                                                    skills: task.skills || [],
-                                                    volunteer_limit: volLimit
-                                                });
-                                                setShowTaskModal(true);
-                                            }}
-                                            className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" 
-                                            title="Edit Task"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDeleteTask(task.id)} 
-                                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" 
-                                            title="Delete Task"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
+                                    {canManage ? (
+                                        <div className="flex items-center gap-2">
+                                            <select 
+                                                className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none text-gray-700 focus:ring-1 focus:ring-blue-500 transition-all bg-white shadow-sm" 
+                                                value={task.status || 'Pending'}
+                                                onChange={(e) => {
+                                                    const newStatus = e.target.value;
+                                                    fetch(`http://localhost:5000/api/events/${eventId}/tasks/${task.id}`, {
+                                                        method: 'PATCH',
+                                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                                                        body: JSON.stringify({ status: newStatus })
+                                                    }).then(res => { if(res.ok) fetchEventDetails(); });
+                                                }}
+                                            >
+                                                <option value="Pending">Pending</option>
+                                                <option value="In Progress">In Progress</option>
+                                                <option value="Submitted">Submitted</option>
+                                                <option value="Approved">Approved</option>
+                                                <option value="Declined">Declined</option>
+                                                <option value="Cancelled">Cancelled</option>
+                                            </select>
+                                            <button 
+                                                onClick={() => {
+                                                    setEditTaskId(task.id);
+                                                    // Parse volunteer limit from description (format: <!--VL:N-->)
+                                                    const volMatch = task.description?.match(/<!--VL:(\d+)-->/);
+                                                    const volLimit = volMatch ? parseInt(volMatch[1]) : 5;
+                                                    const cleanDesc = task.description?.replace(/<!--VL:\d+-->/, '') || '';
+                                                    setNewTask({
+                                                        title: task.title || '',
+                                                        description: cleanDesc,
+                                                        priority: task.priority || 'Medium',
+                                                        deadline: task.deadline ? task.deadline.split('T')[0] : '',
+                                                        assignedTo: task.assignedStudentNumbers ? task.assignedStudentNumbers.split(',').map(s => s.trim()) : [],
+                                                        is_volunteer_opportunity: !!task.is_volunteer_opportunity,
+                                                        proof_type: task.proof_type || 'None',
+                                                        status: task.status || 'Pending',
+                                                        skills: task.skills || [],
+                                                        volunteer_limit: volLimit
+                                                    });
+                                                    setShowTaskModal(true);
+                                                }}
+                                                className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" 
+                                                title="Edit Task"
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteTask(task.id)} 
+                                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" 
+                                                title="Delete Task"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-400 text-xs italic">Read Only</span>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -525,9 +546,11 @@ const OCEventDetails = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-gray-800">OC Members</h3>
-                <button onClick={() => setShowOcModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
-                    <Plus size={16} /> Add OC
-                </button>
+                {canManage && (
+                    <button onClick={() => setShowOcModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
+                        <Plus size={16} /> Add OC
+                    </button>
+                )}
             </div>
             <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm text-left">
@@ -595,32 +618,38 @@ const OCEventDetails = () => {
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-3">
-                                            <button 
-                                                onClick={() => { 
-                                                    setEditingOcId(member.eo_id); 
-                                                    setEditRoleStr(member.role); 
-                                                    setEditOcStudentId(member.student_id || member.id || ''); 
-                                                }} 
-                                                className="text-blue-500 hover:text-blue-700 transition flex items-center gap-1 text-xs font-semibold bg-blue-50 px-2 py-1 rounded border border-blue-100"
-                                            >
-                                                <Edit2 size={12} /> Edit
-                                            </button>
-                                            <button 
-                                                onClick={async () => {
-                                                    if(!window.confirm("Remove this member from OC?")) return;
-                                                    try {
-                                                        const token = localStorage.getItem('token');
-                                                        const res = await fetch(`http://localhost:5000/api/events/oc/${member.eo_id}`, {
-                                                            method: 'DELETE',
-                                                            headers: { 'Authorization': `Bearer ${token}` }
-                                                        });
-                                                        if (res.ok) fetchEventDetails();
-                                                    } catch (err) {}
-                                                }} 
-                                                className="text-red-500 hover:text-red-700 transition flex items-center gap-1 text-xs font-semibold bg-red-50 px-2 py-1 rounded border border-red-100"
-                                            >
-                                                <Trash2 size={12} /> Delete
-                                            </button>
+                                            {canManage ? (
+                                                <>
+                                                    <button 
+                                                        onClick={() => { 
+                                                            setEditingOcId(member.eo_id); 
+                                                            setEditRoleStr(member.role); 
+                                                            setEditOcStudentId(member.student_id || member.id || ''); 
+                                                        }} 
+                                                        className="text-blue-500 hover:text-blue-700 transition flex items-center gap-1 text-xs font-semibold bg-blue-50 px-2 py-1 rounded border border-blue-100"
+                                                    >
+                                                        <Edit2 size={12} /> Edit
+                                                    </button>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            if(!window.confirm("Remove this member from OC?")) return;
+                                                            try {
+                                                                const token = localStorage.getItem('token');
+                                                                const res = await fetch(`http://localhost:5000/api/events/oc/${member.eo_id}`, {
+                                                                    method: 'DELETE',
+                                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                                });
+                                                                if (res.ok) fetchEventDetails();
+                                                            } catch (err) {}
+                                                        }} 
+                                                        className="text-red-500 hover:text-red-700 transition flex items-center gap-1 text-xs font-semibold bg-red-50 px-2 py-1 rounded border border-red-100"
+                                                    >
+                                                        <Trash2 size={12} /> Delete
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-400 text-xs italic">Read Only</span>
+                                            )}
                                         </div>
                                     )}
                                 </td>
@@ -710,8 +739,14 @@ const OCEventDetails = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex gap-3">
-                                            <button onClick={() => handleEditPartner(p)} className="text-blue-600 font-medium text-xs hover:underline flex items-center gap-1"><Edit2 size={12}/> Edit</button>
-                                            <button onClick={() => handleDeletePartnership(p.partnership_id)} className="text-red-500 font-medium text-xs hover:underline flex items-center gap-1"><Trash2 size={12}/> Delete</button>
+                                            {canManage ? (
+                                                <>
+                                                    <button onClick={() => handleEditPartner(p)} className="text-blue-600 font-medium text-xs hover:underline flex items-center gap-1"><Edit2 size={12}/> Edit</button>
+                                                    <button onClick={() => handleDeletePartnership(p.partnership_id)} className="text-red-500 font-medium text-xs hover:underline flex items-center gap-1"><Trash2 size={12}/> Delete</button>
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-400 text-xs italic">Read Only</span>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -760,9 +795,11 @@ const OCEventDetails = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-gray-800">Event Timeline</h3>
-                <button onClick={() => setShowTimelineModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
-                    <Plus size={16} /> Add Stage
-                </button>
+                {canManage && (
+                    <button onClick={() => setShowTimelineModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
+                        <Plus size={16} /> Add Stage
+                    </button>
+                )}
             </div>
             <div className="relative border-l-2 border-gray-100 ml-4 space-y-8">
                 {timeline.map((item, index) => (
@@ -789,12 +826,18 @@ const OCEventDetails = () => {
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={() => { setEditTimelineId(item.id); setEditTimelineData({ title: item.title, date: item.date.split('T')[0] }); }} className="text-white bg-blue-400 hover:bg-blue-500 rounded-md p-1.5 transition-colors opacity-0 group-hover:opacity-100 shadow-sm" title="Edit Phase">
-                                            <Edit2 size={14} />
-                                        </button>
-                                        <button onClick={() => handleDeleteTimeline(item.id)} className="text-white bg-red-400 hover:bg-red-500 rounded-md p-1.5 transition-colors opacity-0 group-hover:opacity-100 shadow-sm" title="Delete Phase">
-                                            <Trash2 size={14} />
-                                        </button>
+                                        {canManage ? (
+                                            <>
+                                                <button onClick={() => { setEditTimelineId(item.id); setEditTimelineData({ title: item.title, date: item.date.split('T')[0] }); }} className="text-white bg-blue-400 hover:bg-blue-500 rounded-md p-1.5 transition-colors opacity-0 group-hover:opacity-100 shadow-sm" title="Edit Phase">
+                                                    <Edit2 size={14} />
+                                                </button>
+                                                <button onClick={() => handleDeleteTimeline(item.id)} className="text-white bg-red-400 hover:bg-red-500 rounded-md p-1.5 transition-colors opacity-0 group-hover:opacity-100 shadow-sm" title="Delete Phase">
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs italic">Read Only</span>
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -838,7 +881,7 @@ const OCEventDetails = () => {
                         )}
                     </div>
                     <Home size={20} className="text-gray-500 cursor-pointer hover:text-teal-600 transition-colors" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Organizing Committee</div>
+                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">{user?.role_name || user?.user_type || 'Member'}</div>
                     <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
                 </div>
             </div>
@@ -860,14 +903,6 @@ const OCEventDetails = () => {
                     </div>
                     {/* Header Controls */}
                     <div className="flex gap-3 mt-4 sm:mt-0 ml-10 sm:ml-0">
-                        {isExecutive && (
-                            <button
-                                onClick={() => setIsEditModalOpen(true)}
-                                className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
-                            >
-                                <Edit2 size={16} /> Edit Event
-                            </button>
-                        )}
                         {isPresident && (
                             <button
                                 onClick={handleDelete}
@@ -1203,4 +1238,4 @@ const OCEventDetails = () => {
     );
 };
 
-export default OCEventDetails;
+export default UnifiedEventDetails;

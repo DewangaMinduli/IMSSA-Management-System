@@ -259,31 +259,44 @@ const ExecutiveDashboard = () => {
                 </ScrollSection>
 
                 {/* EVENTS (Live from DB) */}
-                <ScrollSection id="events" title="Events">
+                <div id="events" className="scroll-mt-24 mb-10">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-800">Events</h3>
+                    </div>
                     {loadingEvents ? (
-                        <div className="w-full min-w-[300px] text-center py-10 text-gray-400 snap-start">Loading events...</div>
+                        <div className="text-center py-20 text-gray-400">Loading events...</div>
                     ) : events.length === 0 ? (
-                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">No events found.</div>
-                    ) : events.map(event => (
-                        <div key={event.event_id} onClick={() => navigate(`/events/${event.event_id}`)} className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                    {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
+                        <div className="bg-white rounded-xl p-10 border border-dashed border-gray-200 text-center text-gray-400">No events found.</div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {events.map(event => (
+                                <div 
+                                    key={event.event_id} 
+                                    onClick={() => navigate(`/exec/event/${event.event_id}`)} 
+                                    className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-all flex flex-col justify-between"
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
+                                            </div>
+                                            <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
+                                        </div>
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                                    </div>
+                                    <div className="space-y-3 mb-4">
+                                        <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                        <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
+                                        <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
+                                    </div>
+                                    <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
+                                        <span>View Details</span><ArrowRight size={14} />
+                                    </div>
                                 </div>
-                                <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
-                            </div>
-                            <div className="space-y-3 mb-6">
-                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
-                                <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
-                                <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
-                            </div>
-                            <div className="pt-3 border-t border-gray-50 flex justify-between items-center">
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
-                                <ChevronRight size={14} className="text-gray-300" />
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </ScrollSection>
+                    )}
+                </div>
 
             </div>
 
