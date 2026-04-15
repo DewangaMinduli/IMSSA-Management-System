@@ -289,29 +289,60 @@ const JuniorTreasurerDashboard = () => {
                     </div>
 
                     {/* Quick Record Form */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
-                            <Plus className="bg-teal-100 text-teal-600 rounded p-1" size={20} /> Records
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit sticky top-24">
+                        <h2 className="text-lg font-bold text-gray-700 mb-6 flex items-center gap-2 border-b border-gray-50 pb-4">
+                            <Plus className="bg-teal-100 text-teal-600 rounded p-1" size={24} /> Records
                         </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <input type="text" name="description" value={form.description} onChange={handleInputChange} placeholder="Description" required className="w-full border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-teal-500" />
-                            <input type="number" name="amount" value={form.amount} onChange={handleInputChange} placeholder="Amount" required className="w-full border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-teal-500" />
-                            <div className="flex gap-2">
-                                <select name="type" value={form.type} onChange={handleInputChange} className="w-1/2 border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-teal-500 bg-white">
-                                    <option value="Expense">Expense</option>
-                                    <option value="Income">Income</option>
-                                </select>
-                                {/* UPDATED: Account Dropdown with ONLY valid options */}
-                                <select name="account_id" value={form.account_id} onChange={handleInputChange} required className="w-1/2 border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-teal-500 bg-white">
-                                    <option value="">Select Account</option>
-                                    {data.accounts.length > 0 ? (
-                                        data.accounts.map(acc => <option key={acc.account_id} value={acc.account_id}>{acc.account_name}</option>)
-                                    ) : (
-                                        <option disabled>No Accounts Available</option>
-                                    )}
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Description</label>
+                                <input type="text" name="description" value={form.description} onChange={handleInputChange} placeholder="E.g., Catering for Workshop" required className="w-full border border-gray-200 rounded-lg p-2.5 text-sm outline-none focus:border-teal-500 shadow-sm" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Amount (Rs.)</label>
+                                    <input type="number" name="amount" value={form.amount} onChange={handleInputChange} placeholder="0.00" required className="w-full border border-gray-200 rounded-lg p-2.5 text-sm outline-none focus:border-teal-500 shadow-sm" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Date</label>
+                                    <input type="date" name="date" value={form.date} onChange={handleInputChange} required className="w-full border border-gray-200 rounded-lg p-2.5 text-sm outline-none focus:border-teal-500 shadow-sm" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Type</label>
+                                    <select name="type" value={form.type} onChange={handleInputChange} className="w-full border border-gray-200 rounded-lg p-2.5 text-sm outline-none focus:border-teal-500 bg-white shadow-sm font-medium">
+                                        <option value="Expense">Expense</option>
+                                        <option value="Income">Income</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Account</label>
+                                    <select name="account_id" value={form.account_id} onChange={handleInputChange} required className="w-full border border-gray-200 rounded-lg p-2.5 text-sm outline-none focus:border-teal-500 bg-white shadow-sm font-medium text-teal-700">
+                                        <option value="">Select...</option>
+                                        {data.accounts.map(acc => <option key={acc.account_id} value={acc.account_id}>{acc.account_name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Related Event (Optional)</label>
+                                <select name="event_id" value={form.event_id} onChange={handleInputChange} className="w-full border border-gray-200 rounded-lg p-2.5 text-sm outline-none focus:border-teal-500 bg-white shadow-sm font-medium text-blue-700">
+                                    <option value="">No Specific Event</option>
+                                    {data.events.map(ev => <option key={ev.event_id} value={ev.event_id}>{ev.event_name}</option>)}
                                 </select>
                             </div>
-                            <button type="submit" className="w-full bg-teal-600 text-white py-2 rounded-lg font-bold hover:bg-teal-700 transition text-sm">Save Record</button>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Notes / File Ref</label>
+                                <textarea name="notes" value={form.notes} onChange={handleInputChange} placeholder="Additional details..." className="w-full border border-gray-200 rounded-lg p-2.5 text-sm outline-none focus:border-teal-500 shadow-sm h-20 resize-none font-sans" />
+                            </div>
+
+                            <button type="submit" className="w-full bg-teal-600 text-white py-3 rounded-xl font-black hover:bg-teal-700 transition-all shadow-lg shadow-teal-100 active:scale-95 text-xs tracking-widest uppercase mt-4">
+                                SAVE TRANSACTION
+                            </button>
                         </form>
                     </div>
                 </div>

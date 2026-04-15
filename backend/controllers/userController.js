@@ -102,40 +102,116 @@ exports.searchStudents = async (req, res) => {
 
 // --- TERM ROLLOVER ARCHIVING PROTOCOL ---
 exports.rolloverTerm = async (req, res) => {
+    let connection;
     try {
-        // 1. Archive graduating Level 4 students (Students in their 4th year)
-        await db.execute(
-            `UPDATE user SET account_status = 'Archived' 
+        const { nominations } = req.body;
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // 1. Archive graduating Level 4 students
+        // Note: Enum is (Pending, Active, Suspended). We use Suspended as the archived state.
+        await connection.execute(
+            `UPDATE user SET account_status = 'Suspended' 
              WHERE user_type = 'Student' AND academic_level = 4 AND account_status = 'Active'`
         );
         
         // 2. Increment academic level for remaining students (1->2, 2->3, 3->4)
-        await db.execute(
+        await connection.execute(
             `UPDATE user SET academic_level = academic_level + 1 
              WHERE user_type = 'Student' AND academic_level < 4 AND account_status = 'Active'`
         );
 
-        // 3. Mark all active roles as 'Expired' for the current term
-        await db.execute(
-            `UPDATE member_role SET status = 'Expired' 
-             WHERE status = 'Active' AND term_id = (SELECT term_id FROM term WHERE is_active = 1)`
+        // 3. Mark all active roles as 'Past' for the current term (transition current exec to members)
+        await connection.execute(
+            `UPDATE member_role SET status = 'Past' 
+             WHERE status = 'Active'`
         );
 
-        // 4. (Optional) You would typically create a new Term entry here or deactivate the old one.
-        // For now, we prioritize the role degradation.
+        // 4. Handle Term Transition
+        const [activeTermRows] = await connection.execute('SELECT term_id, term_name FROM term WHERE is_active = 1');
+        let newTermId = null;
 
+        if (activeTermRows.length > 0) {
+            const currentTerm = activeTermRows[0];
+            const currentName = currentTerm.term_name; // e.g., "2024/25"
+            
+            // Calculate next term name logically
+            let nextName = "Next Term";
+            try {
+                const parts = currentName.split('/');
+                if (parts.length === 2) {
+                    const startYear = parseInt(parts[0]);
+                    const endYearSuffix = parseInt(parts[1]);
+                    nextName = `${startYear + 1}/${endYearSuffix + 1}`;
+                }
+            } catch (e) { console.error("Term name parse error", e); }
 
-        // Send notification to all users about term handover
+            // Deactivate current term
+            await connection.execute('UPDATE term SET is_active = 0 WHERE term_id = ?', [currentTerm.term_id]);
+
+            // Create new term
+            const [newTermResult] = await connection.execute(
+                'INSERT INTO term (term_name, start_date, is_active) VALUES (?, NOW(), 1)',
+                [nextName]
+            );
+            newTermId = newTermResult.insertId;
+        }
+
+        // 5. Assign nominated board roles in the NEW term
+        if (newTermId && nominations && Array.isArray(nominations)) {
+            for (const nomination of nominations) {
+                const { studentId, systemRole, roleName } = nomination;
+                if (!studentId) continue;
+
+                // Find user by student number
+                const [users] = await connection.execute(
+                    'SELECT user_id FROM user WHERE student_number = ? LIMIT 1',
+                    [studentId.trim()]
+                );
+
+                if (users.length > 0) {
+                    const userId = users[0].user_id;
+                    // Use systemRole if provided, otherwise default to Executive_Board for custom entries
+                    const targetRoleName = systemRole || 'Executive_Board';
+
+                    // Find role_id
+                    const [roles] = await connection.execute(
+                        'SELECT role_id FROM role WHERE role_name = ? LIMIT 1',
+                        [targetRoleName]
+                    );
+
+                    if (roles.length > 0) {
+                        const roleId = roles[0].role_id;
+                        // Insert new active role for the new term
+                        await connection.execute(
+                            'INSERT INTO member_role (user_id, role_id, term_id, status) VALUES (?, ?, ?, "Active")',
+                            [userId, roleId, newTermId]
+                        );
+                    }
+                }
+            }
+        }
+
+        await connection.commit();
+
+        // Send notification about term handover
         try {
             await notificationHelper.notifyTermHandover();
         } catch (notifyErr) {
             console.error('[rolloverTerm] Notification error:', notifyErr);
         }
 
-        res.json({ message: "Term Rollover Successful. Students upgraded and graduating class archived." });
+        res.json({ 
+            message: "Term Rollover Successful. Level 4 class archived, students promoted, and new Executive Board assigned.",
+            new_term_id: newTermId
+        });
+
     } catch (error) {
+        if (connection) await connection.rollback();
         console.error("Error executing term rollover:", error);
-        res.status(500).json({ message: "Internal Server Error during Rollover" });
+        res.status(500).json({ message: "Internal Server Error during Rollover", error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 

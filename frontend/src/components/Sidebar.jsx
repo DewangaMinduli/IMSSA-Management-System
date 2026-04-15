@@ -206,7 +206,9 @@ const Sidebar = () => {
             <p className="text-[10px] text-teal-600 truncate font-medium uppercase tracking-wider">
               {(user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer') ? "Senior Treasurer" :
                 (user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' || user.role_name === 'Academic_Staff' || user.role_name === 'Academic Staff') ? "Academic Staff" :
-                  (user.hierarchy_level >= 4) ? "Executive Board" : (user.role_name || user.user_type)}
+                  (user.role_name === 'President') ? "President" :
+                    (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? "Junior Treasurer" :
+                      (user.hierarchy_level >= 4) ? "Executive Board" : (user.role_name || user.user_type)}
             </p>
           </div>
         </div>
