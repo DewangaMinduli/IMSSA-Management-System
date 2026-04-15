@@ -34,13 +34,12 @@ const PresidentDashboard = () => {
                 const resMyTasks = await fetch(`http://localhost:5000/api/events/my-tasks?user_id=${uid}`);
                 if (resMyTasks.ok) setMyTasks(await resMyTasks.json());
 
-                // Fetch Volunteer Opportunities (exclude own events)
-                const resVolOps = await fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}&current_user_id=${uid}`);
+                // Fetch Volunteer Opportunities
+                const resVolOps = await fetch(`http://localhost:5000/api/events/volunteer-opportunities?current_user_id=${uid}`);
                 if (resVolOps.ok) {
                     const data = await resVolOps.json();
-                    // Filter out full tasks and tasks user already volunteered for
-                    const availableTasks = data.filter(task => !task.is_full && !task.user_has_volunteered);
-                    setVolunteerOps(availableTasks);
+                    // filtering is mostly done in backend now
+                    setVolunteerOps(data.filter(task => !task.is_full && !task.user_has_volunteered));
                 }
 
                 // Fetch Tasks to Approve (scoped to Exec - system wide)
@@ -65,7 +64,6 @@ const PresidentDashboard = () => {
                 body: JSON.stringify({ user_id: uid })
             });
             const data = await res.json();
-            alert(res.ok ? `Volunteered for: ${task.title}!` : data.message);
             
             if (res.ok) {
                 alert(`Volunteered for: ${task.title}!`);
@@ -76,6 +74,8 @@ const PresidentDashboard = () => {
                 window.dispatchEvent(new CustomEvent('taskAssigned', { 
                     detail: { taskId: task.id, eventId: task.event_id } 
                 }));
+            } else {
+                alert(data.message || 'Failed to volunteer.');
             }
         } catch (err) {
             alert('Failed to volunteer. Try again.');
@@ -83,24 +83,7 @@ const PresidentDashboard = () => {
         setSelectedVolunteerTask(null);
     };
 
-    const handleApproveTask = async (task) => {
-        try {
-            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/assignments/${task.assignment_id}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'Approved' })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert(`Approved task: ${task.title}`);
-                setTasksToApprove(prev => prev.filter(t => t.assignment_id !== task.assignment_id));
-            } else {
-                alert(data.message);
-            }
-        } catch (err) {
-            alert('Failed to approve task.');
-        }
-    };
+
 
     const ScrollSection = ({ id, title, children }) => (
         <div id={id} className="mb-8 scroll-mt-24">
@@ -194,10 +177,14 @@ const PresidentDashboard = () => {
                             No tasks requiring approval.
                         </div>
                     ) : tasksToApprove.map(task => (
-                        <div key={task.assignment_id} className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start">
+                        <div 
+                            key={task.assignment_id} 
+                            onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}`)}
+                            className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-all group"
+                        >
                             <div>
                                 <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-bold text-gray-800 text-sm">{task.title}</h4>
+                                    <h4 className="font-bold text-gray-800 text-sm group-hover:text-blue-600 transition-colors">{task.title}</h4>
                                     <span className={`px-2 py-1 rounded text-[10px] font-bold ${task.assignment_status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                         {task.assignment_status}
                                     </span>
@@ -208,10 +195,13 @@ const PresidentDashboard = () => {
                             </div>
                             <div className="flex justify-end pt-3 border-t border-gray-50">
                                 <button 
-                                    onClick={() => handleApproveTask(task)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/exec/tasks/${task.id}/${task.assignment_id}`);
+                                    }}
                                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition-colors"
                                 >
-                                    Approve
+                                    Review
                                 </button>
                             </div>
                         </div>
@@ -280,44 +270,37 @@ const PresidentDashboard = () => {
                 </ScrollSection>
 
                 {/* EVENTS (Live from DB) */}
-                <div id="events" className="scroll-mt-24 mb-10">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-gray-800">All Events</h3>
-                    </div>
+                <ScrollSection id="events" title="All Events">
                     {loadingEvents ? (
-                        <div className="text-center py-20 text-gray-400">Loading events...</div>
+                        <div className="w-full min-w-[300px] text-center py-10 text-gray-400 snap-start">Loading events...</div>
                     ) : events.length === 0 ? (
-                        <div className="bg-white rounded-xl p-10 border border-dashed border-gray-200 text-center text-gray-400">No events found.</div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {events.map(event => (
-                                <div 
-                                    key={event.event_id} 
-                                    onClick={() => navigate(`/exec/event/${event.event_id}`)} 
-                                    className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-all flex flex-col justify-between"
-                                >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                                {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
-                                            </div>
-                                            <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
-                                        </div>
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">No events found.</div>
+                    ) : events.map(event => (
+                        <div 
+                            key={event.event_id} 
+                            onClick={() => navigate(`/exec/event/${event.event_id}`)} 
+                            className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start flex flex-col justify-between"
+                        >
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
                                     </div>
-                                    <div className="space-y-3 mb-4">
-                                        <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
-                                        <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
-                                        <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
-                                    </div>
-                                    <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
-                                        <span>View Details</span><ArrowRight size={14} />
-                                    </div>
+                                    <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
                                 </div>
-                            ))}
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                            </div>
+                            <div className="space-y-3 mb-6">
+                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
+                                <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
+                            </div>
+                            <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
+                                <span>View Details</span><ArrowRight size={14} />
+                            </div>
                         </div>
-                    )}
-                </div>
+                    ))}
+                </ScrollSection>
 
                 {/* TERM MANAGEMENT (President only) */}
                 <div id="term-management" className="space-y-4 mb-8 scroll-mt-24">

@@ -12,7 +12,13 @@ exports.getProfile = async (req, res) => {
                    u.academic_level, u.user_type, u.account_status, u.created_at,
                    u.student_number,
                    COALESCE(
-                       (SELECT r.role_name FROM member_role mr JOIN role r ON mr.role_id = r.role_id WHERE mr.user_id = u.user_id LIMIT 1),
+                       (SELECT r.role_name 
+                        FROM member_role mr 
+                        JOIN role r ON mr.role_id = r.role_id 
+                        JOIN term t ON mr.term_id = t.term_id
+                        WHERE mr.user_id = u.user_id AND t.is_active = 1 AND mr.status = 'Active'
+                        ORDER BY r.hierarchy_level DESC 
+                        LIMIT 1),
                        u.user_type
                    ) as role_name
             FROM user u
@@ -68,7 +74,13 @@ exports.searchStudents = async (req, res) => {
         
         let sql = `SELECT u.user_id, u.student_number, u.full_name,
                     COALESCE(
-                        (SELECT r.role_name FROM member_role mr JOIN role r ON mr.role_id = r.role_id WHERE mr.user_id = u.user_id LIMIT 1),
+                        (SELECT r.role_name 
+                         FROM member_role mr 
+                         JOIN role r ON mr.role_id = r.role_id 
+                         JOIN term t ON mr.term_id = t.term_id
+                         WHERE mr.user_id = u.user_id AND t.is_active = 1 AND mr.status = 'Active'
+                         ORDER BY r.hierarchy_level DESC 
+                         LIMIT 1),
                         u.user_type
                     ) as role_name, u.account_status
              FROM user u
@@ -91,17 +103,27 @@ exports.searchStudents = async (req, res) => {
 // --- TERM ROLLOVER ARCHIVING PROTOCOL ---
 exports.rolloverTerm = async (req, res) => {
     try {
-        // 1. Archive graduating Level 4 students (and outgoing Level 5 Execs)
+        // 1. Archive graduating Level 4 students (Students in their 4th year)
         await db.execute(
-            `UPDATE user SET account_status = 'Archived', role_name = 'Member', role_id = NULL 
-             WHERE hierarchy_level >= 4 AND account_status = 'Active'`
+            `UPDATE user SET account_status = 'Archived' 
+             WHERE user_type = 'Student' AND academic_level = 4 AND account_status = 'Active'`
         );
         
-        // 2. Auto-increment remaining active underclassmen (Level 1->2, 2->3, 3->4)
+        // 2. Increment academic level for remaining students (1->2, 2->3, 3->4)
         await db.execute(
-            `UPDATE user SET hierarchy_level = hierarchy_level + 1 
-             WHERE hierarchy_level < 4 AND account_status = 'Active'`
+            `UPDATE user SET academic_level = academic_level + 1 
+             WHERE user_type = 'Student' AND academic_level < 4 AND account_status = 'Active'`
         );
+
+        // 3. Mark all active roles as 'Expired' for the current term
+        await db.execute(
+            `UPDATE member_role SET status = 'Expired' 
+             WHERE status = 'Active' AND term_id = (SELECT term_id FROM term WHERE is_active = 1)`
+        );
+
+        // 4. (Optional) You would typically create a new Term entry here or deactivate the old one.
+        // For now, we prioritize the role degradation.
+
 
         // Send notification to all users about term handover
         try {
@@ -142,7 +164,13 @@ exports.getSkillMembers = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT u.user_id, u.full_name, u.student_number, msl.points,
                    COALESCE(
-                       (SELECT r.role_name FROM member_role mr JOIN role r ON mr.role_id = r.role_id WHERE mr.user_id = u.user_id LIMIT 1),
+                       (SELECT r.role_name 
+                        FROM member_role mr 
+                        JOIN role r ON mr.role_id = r.role_id 
+                        JOIN term t ON mr.term_id = t.term_id
+                        WHERE mr.user_id = u.user_id AND t.is_active = 1 AND mr.status = 'Active'
+                        ORDER BY r.hierarchy_level DESC 
+                        LIMIT 1),
                        u.user_type
                    ) as role_name
             FROM member_skill_level msl

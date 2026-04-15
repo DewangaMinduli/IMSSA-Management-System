@@ -123,8 +123,9 @@ exports.login = async (req, res) => {
             SELECT u.*, r.role_name as db_role_name, r.hierarchy_level 
             FROM user u
             LEFT JOIN member_role mr ON u.user_id = mr.user_id AND mr.status = 'Active'
+            LEFT JOIN term t ON mr.term_id = t.term_id AND t.is_active = 1
             LEFT JOIN role r ON mr.role_id = r.role_id
-            WHERE u.student_number = ? OR u.email = ?
+            WHERE (u.student_number = ? OR u.email = ?) AND (t.is_active = 1 OR mr.role_id IS NULL)
             ORDER BY r.hierarchy_level DESC
         `, [identifier, identifier]);
         if (users.length === 0) return res.status(400).json({ message: "Invalid credentials" });

@@ -41,39 +41,47 @@ const JuniorTreasurerDashboard = () => {
         notes: ''
     });
 
-    useEffect(() => {
-        const init = async () => {
-            try {
-                const uid = user?.id;
+    const fetchDashboardData = async () => {
+        try {
+            const uid = user?.id;
+            const [finRes, evRes, tasksRes, volRes, approveRes] = await Promise.all([
+                fetch('http://localhost:5000/api/finance/dashboard-summary'),
+                fetch('http://localhost:5000/api/events'),
+                uid ? fetch(`http://localhost:5000/api/events/my-tasks?user_id=${uid}`) : Promise.resolve(null),
+                uid ? fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}&current_user_id=${uid}`) : Promise.resolve(null),
+                uid ? fetch(`http://localhost:5000/api/events/tasks-to-approve?user_id=${uid}&role=exec`) : Promise.resolve(null)
+            ]);
 
-                const [finRes, evRes, tasksRes, volRes, approveRes] = await Promise.all([
-                    fetch('http://localhost:5000/api/finance/dashboard-summary'),
-                    fetch('http://localhost:5000/api/events'),
-                    uid ? fetch(`http://localhost:5000/api/events/my-tasks?user_id=${uid}`) : Promise.resolve(null),
-                    uid ? fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}`) : Promise.resolve(null),
-                    uid ? fetch(`http://localhost:5000/api/events/tasks-to-approve?user_id=${uid}&role=exec`) : Promise.resolve(null)
-                ]);
-
-                if (finRes.ok) {
-                    const json = await finRes.json();
-                    setData(json);
-                    if (json.accounts.length > 0) setForm(prev => ({ ...prev, account_id: json.accounts[0].account_id }));
+            if (finRes && finRes.ok) {
+                const json = await finRes.json();
+                setData(prev => ({ 
+                    ...prev, 
+                    accounts: json.accounts || [], 
+                    transactions: json.transactions || [] 
+                }));
+                if (json.accounts?.length > 0) {
+                    setForm(prev => ({ ...prev, account_id: json.accounts[0].account_id }));
                 }
-                if (evRes.ok) {
-                    const evData = await evRes.json();
-                    setData(prev => ({ ...prev, events: evData }));
-                }
-                if (tasksRes && tasksRes.ok) setMyTasks(await tasksRes.json());
-                if (volRes && volRes.ok) setVolunteerOps(await volRes.json());
-                if (approveRes && approveRes.ok) setTasksToApprove(await approveRes.json());
-            } catch (err) {
-                console.error('Failed to fetch dashboard data', err);
-            } finally {
-                setLoading(false);
             }
-        };
-        init();
-    }, []);
+            if (evRes && evRes.ok) {
+                const evData = await evRes.json();
+                setData(prev => ({ ...prev, events: evData }));
+            }
+            if (tasksRes && tasksRes.ok) setMyTasks(await tasksRes.json());
+            if (volRes && volRes.ok) setVolunteerOps(await volRes.json());
+            if (approveRes && approveRes.ok) setTasksToApprove(await approveRes.json());
+        } catch (err) {
+            console.error('Failed to fetch dashboard data', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (user) {
+            fetchDashboardData();
+        }
+    }, [user]);
 
     const handleInputChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -122,24 +130,7 @@ const JuniorTreasurerDashboard = () => {
         setSelectedVolunteerTask(null);
     };
 
-    const handleApproveTask = async (task) => {
-        try {
-            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/assignments/${task.assignment_id}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'Approved' })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert(`Approved task: ${task.title}`);
-                setTasksToApprove(prev => prev.filter(t => t.assignment_id !== task.assignment_id));
-            } else {
-                alert(data.message);
-            }
-        } catch (err) {
-            alert('Failed to approve task.');
-        }
-    };
+
 
     const handleGenerateReport = () => {
         alert(`Generating ${reportType.toUpperCase()} Report...`);
@@ -159,7 +150,7 @@ const JuniorTreasurerDashboard = () => {
         </div>
     );
 
-    if (loading) return <div className="p-8">Loading Finance Dashboard...</div>;
+    if (!user) return <div className="p-8">Redirecting...</div>;
 
     return (
         <div className="pb-10 bg-gray-50 min-h-screen font-sans">
@@ -327,18 +318,37 @@ const JuniorTreasurerDashboard = () => {
 
                 {/* 6. TASKS TO APPROVE */}
                 <ScrollSection id="approve-tasks" title="Tasks to Approve">
-                    {tasksToApprove.map(task => (
-                        <div key={task.id} className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-shadow">
+                    {tasksToApprove.length === 0 ? (
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
+                            No tasks requiring approval.
+                        </div>
+                    ) : tasksToApprove.map(task => (
+                        <div 
+                            key={task.assignment_id} 
+                            onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}`)}
+                            className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-all group"
+                        >
                             <div>
-                                <h4 className="font-bold text-gray-800 text-sm mb-1">{task.title}</h4>
-                                <p className="text-xs text-gray-500 line-clamp-2 mb-4">{task.desc}</p>
-                                <div className="space-y-2 text-xs text-gray-500 mb-4">
-                                    <p>Requested by: {task.assignedTo}</p>
-                                    <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold">Event: {task.event}</span>
+                                <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-bold text-gray-800 text-sm group-hover:text-blue-600 transition-colors">{task.title}</h4>
+                                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${task.assignment_status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        {task.assignment_status}
+                                    </span>
                                 </div>
+                                <p className="text-xs text-gray-500 mb-4 line-clamp-2">{task.desc}</p>
+                                <div className="text-xs text-gray-500 mb-2"><strong>Event:</strong> {task.event}</div>
+                                <div className="text-xs text-gray-500 mb-4"><strong>By:</strong> {task.assigned_to}</div>
                             </div>
                             <div className="flex justify-end pt-3 border-t border-gray-50">
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition-colors">Review</button>
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/exec/tasks/${task.id}/${task.assignment_id}`);
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                                >
+                                    Review
+                                </button>
                             </div>
                         </div>
                     ))}
@@ -410,42 +420,37 @@ const JuniorTreasurerDashboard = () => {
                 </ScrollSection>
 
                 {/* 9. EVENTS (Live from DB) */}
-                <div id="events" className="scroll-mt-24 mb-10">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-gray-800">Events</h3>
-                    </div>
+                <ScrollSection id="events" title="Events">
                     {data.events.length === 0 ? (
-                        <div className="bg-white rounded-xl p-10 border border-dashed border-gray-200 text-center text-gray-400">No events found.</div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {data.events.map(event => (
-                                <div 
-                                    key={event.event_id} 
-                                    onClick={() => navigate(`/exec/event/${event.event_id}`)} 
-                                    className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-all flex flex-col justify-between"
-                                >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                                {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
-                                            </div>
-                                            <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
-                                        </div>
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
-                                    </div>
-                                    <div className="space-y-3 mb-4">
-                                        <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
-                                        <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
-                                        <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
-                                    </div>
-                                    <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
-                                        <span>View Details</span><ArrowRight size={14} />
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
+                            No events found.
                         </div>
-                    )}
-                </div>
+                    ) : data.events.map(event => (
+                        <div 
+                            key={event.event_id} 
+                            onClick={() => navigate(`/exec/event/${event.event_id}`)} 
+                            className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start flex flex-col justify-between"
+                        >
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
+                                    </div>
+                                    <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
+                                </div>
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                            </div>
+                            <div className="space-y-3 mb-6">
+                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
+                                <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
+                            </div>
+                            <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
+                                <span>View Details</span><ArrowRight size={14} />
+                            </div>
+                        </div>
+                    ))}
+                </ScrollSection>
             </div>
 
             {/* MODAL: Volunteer Task */}
@@ -498,7 +503,7 @@ const JuniorTreasurerDashboard = () => {
                             {reportType === 'event' && (
                                 <select className="w-full mt-2 border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-teal-500 bg-gray-50">
                                     <option>Select Event...</option>
-                                    {execEvents.map(e => <option key={e.id}>{e.name}</option>)}
+                                    {data.events.map(e => <option key={e.event_id}>{e.event_name}</option>)}
                                 </select>
                             )}
                             {reportType === 'account' && (

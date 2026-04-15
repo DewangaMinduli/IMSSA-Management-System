@@ -41,7 +41,7 @@ const MemberDashboard = () => {
         const uid = user.id;
 
         // Fetch Volunteer Opportunities
-        fetch(`http://localhost:5000/api/events/volunteer-opportunities?exclude_user_id=${uid}&current_user_id=${uid}`)
+        fetch(`http://localhost:5000/api/events/volunteer-opportunities?current_user_id=${uid}`)
             .then(r => r.ok ? r.json() : [])
             .then(data => {
                 // Filter out full tasks and tasks user already volunteered for

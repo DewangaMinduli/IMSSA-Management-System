@@ -19,6 +19,8 @@ const TaskDetails = () => {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [approvalAction, setApprovalAction] = useState(null);
     const [error, setError] = useState('');
+    const [localNotes, setLocalNotes] = useState('');
+    const [isSavingNotes, setIsSavingNotes] = useState(false);
 
     useEffect(() => {
         console.log('[TaskDetails] taskId:', taskId, 'assignmentId:', assignmentId, 'userId:', user?.id, 'user:', user);
@@ -46,6 +48,7 @@ const TaskDetails = () => {
 
             const assignmentData = await assignmentRes.json();
             setAssignment(assignmentData);
+            setLocalNotes(assignmentData.submission_text || '');
 
             if (commentsRes.ok) {
                 const commentsData = await commentsRes.json();
@@ -218,17 +221,55 @@ const TaskDetails = () => {
                             )}
 
                             {/* Notes panel for tasks with no submission required */}
-                            {isAssignee && assignment.proof_type === 'None' && ['Assigned', 'In_Progress'].includes(assignment.assignment_status) && (
-                                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Notes</h3>
-                                    <p className="text-sm text-gray-500 mb-4">Add any notes or updates about this task. No submission is required.</p>
-                                    <textarea
-                                        value={assignment.notes || ''}
-                                        onChange={(e) => {/* TODO: Save notes */}}
-                                        placeholder="Add notes here..."
-                                        rows={4}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
-                                    />
+                            {isAssignee && assignment.proof_type === 'None' && ['Assigned', 'In_Progress', 'Rejected'].includes(assignment.assignment_status) && (
+                                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Notes & Completion</h3>
+                                    <p className="text-sm text-gray-500 mb-4">Add any notes or updates about this task. Although no file is required, you must mark it as completed.</p>
+                                    <div className="space-y-4">
+                                        <textarea
+                                            value={localNotes}
+                                            onChange={(e) => setLocalNotes(e.target.value)}
+                                            placeholder="Add notes about your work here..."
+                                            rows={4}
+                                            disabled={isSavingNotes}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition disabled:bg-gray-50 disabled:text-gray-500"
+                                        />
+                                        <div className="flex justify-end">
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        setIsSavingNotes(true);
+                                                        const response = await fetch(
+                                                            `http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/submit-with-link`,
+                                                            {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({
+                                                                    submission_text: localNotes.trim() || 'Task completed without specific notes.',
+                                                                    drive_link: null
+                                                                })
+                                                            }
+                                                        );
+                                                        if (response.ok) {
+                                                            handleSubmitSuccess();
+                                                        } else {
+                                                            const errData = await response.json();
+                                                            setError(errData.message || 'Failed to submit task');
+                                                        }
+                                                    } catch (err) {
+                                                        setError('Failed to submit task');
+                                                    } finally {
+                                                        setIsSavingNotes(false);
+                                                    }
+                                                }}
+                                                disabled={isSavingNotes}
+                                                className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+                                            >
+                                                {isSavingNotes ? <Loader size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                                                Mark as Completed
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 

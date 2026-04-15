@@ -638,6 +638,12 @@ exports.updateTaskAssignmentStatus = async (req, res) => {
                     }
                 }
 
+                // UPDATE PARENT TASK STATUS
+                await connection.execute(
+                    `UPDATE task SET status = 'Completed' WHERE task_id = ?`,
+                    [taskId]
+                );
+
                 // Send approval notification
                 await connection.execute(
                     `INSERT INTO notification (user_id, title, message, type) 
@@ -732,8 +738,9 @@ exports.getVolunteerOpportunities = async (req, res) => {
         const params = [];
 
         if (exclude_user_id) {
-            query += ` AND e.created_by_user_id != ? `;
-            params.push(exclude_user_id);
+            // query += ` AND e.created_by_user_id != ? `;
+            // params.push(exclude_user_id);
+            // Removing this filter as even event creators should be able to volunteer for tasks
         }
 
         query += ` GROUP BY t.task_id ORDER BY t.deadline ASC`;
@@ -1335,7 +1342,7 @@ exports.getTasksToApprove = async (req, res) => {
                 WHERE t.event_id IN (
                     SELECT event_id FROM event_coordinator WHERE user_id = ?
                 )
-                AND ta.status IN ('Submitted')
+                AND ta.status IN ('Submitted', 'Completed')
                 AND ta.assigned_user_id != ?
                 ORDER BY t.deadline ASC
             `;

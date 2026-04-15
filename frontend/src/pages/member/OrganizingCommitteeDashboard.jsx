@@ -130,24 +130,7 @@ const OrganizingCommitteeDashboard = () => {
     };
 
     // Approve task submission
-    const handleApproveTask = async (task) => {
-        try {
-            const res = await fetch(`http://localhost:5000/api/events/tasks/${task.id}/assignments/${task.assignment_id}/status`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'Approved' })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert(`Approved task: ${task.title}`);
-                setTasksToApprove(prev => prev.filter(t => t.assignment_id !== task.assignment_id));
-            } else {
-                alert(data.message);
-            }
-        } catch (err) {
-            alert('Failed to approve task.');
-        }
-    };
+
 
     // Reusable Horizontal Scroll Section Component
     const ScrollSection = ({ id, title, children }) => (
@@ -247,20 +230,17 @@ const OrganizingCommitteeDashboard = () => {
                 </div>
 
                 {/* MY EVENTS */}
-                <h3 id="my-events" className="text-lg font-bold text-gray-900 mb-4 pt-4 scroll-mt-24">My Events</h3>
-                {loadingEvents ? (
-                    <p className="text-gray-400 text-sm mb-10">Loading events...</p>
-                ) : events.length === 0 ? (
-                    <div className="bg-white rounded-xl p-8 border border-dashed border-gray-200 text-center text-gray-400 text-sm mb-10">
-                        No events found.
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                        {events.map(event => (
+                <ScrollSection id="my-events" title="My Events">
+                    {loadingEvents ? (
+                        <div className="w-full min-w-[300px] text-center py-10 text-gray-400 snap-start">Loading events...</div>
+                    ) : events.length === 0 ? (
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">No events found.</div>
+                    ) : (
+                        events.map(event => (
                             <div
                                 key={event.event_id}
                                 onClick={() => navigate(`/member/event/${event.event_id}`)}
-                                className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-all flex flex-col justify-between"
+                                className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start flex flex-col justify-between"
                             >
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-3">
@@ -271,7 +251,7 @@ const OrganizingCommitteeDashboard = () => {
                                     </div>
                                     <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
                                 </div>
-                                <div className="space-y-3 mb-4">
+                                <div className="space-y-3 mb-6">
                                     <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
                                     <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
                                     <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
@@ -280,9 +260,9 @@ const OrganizingCommitteeDashboard = () => {
                                     <span>View Details</span><ArrowRight size={14} />
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        )
+                    ))}
+                </ScrollSection>
 
                 {/* TASKS TO APPROVE */}
                 <ScrollSection id="tasks-to-approve" title="Tasks to Approve">
@@ -292,10 +272,14 @@ const OrganizingCommitteeDashboard = () => {
                         </div>
                     ) : (
                         tasksToApprove.map(task => (
-                            <div key={task.assignment_id} className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start">
+                            <div 
+                                key={task.assignment_id} 
+                                onClick={() => navigate(`/member/tasks/${task.id}/${task.assignment_id}`)}
+                                className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-all group"
+                            >
                                 <div>
                                     <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-gray-800 text-sm">{task.title}</h4>
+                                        <h4 className="font-bold text-gray-800 text-sm group-hover:text-blue-600 transition-colors">{task.title}</h4>
                                         <span className={`px-2 py-1 rounded text-[10px] font-bold ${task.assignment_status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                             {task.assignment_status}
                                         </span>
@@ -306,10 +290,13 @@ const OrganizingCommitteeDashboard = () => {
                                 </div>
                                 <div className="flex justify-end pt-3 border-t border-gray-50">
                                     <button 
-                                        onClick={() => handleApproveTask(task)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/member/tasks/${task.id}/${task.assignment_id}`);
+                                        }}
                                         className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700 transition"
                                     >
-                                        Approve
+                                        Review
                                     </button>
                                 </div>
                             </div>

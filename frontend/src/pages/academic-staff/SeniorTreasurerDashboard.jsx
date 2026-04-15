@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Search, FileText, Calendar, Users, Clock, ArrowRight, Bell, Home, X, Download, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import UserDropdown from '../../components/UserDropdown';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const SeniorTreasurerDashboard = () => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [financeData, setFinanceData] = useState({ accounts: [], transactions: [], events: [] });
     // Phase 5 States
@@ -62,6 +63,18 @@ const SeniorTreasurerDashboard = () => {
         if (filterType === 'Account' && filterValue) return t.account_name === filterValue;
         return true;
     });
+
+    const ScrollSection = ({ id, title, children }) => (
+        <div id={id} className="mb-10 scroll-mt-24">
+            <div className="flex justify-between items-center mb-4 px-1">
+                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
+                {children}
+            </div>
+        </div>
+    );
 
     const fetchData = async () => {
         try {
@@ -509,34 +522,37 @@ const SeniorTreasurerDashboard = () => {
                 </section>
 
                 {/* Events */}
-                <section id="events" className="mb-10 scroll-mt-24">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Events</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {allEvents.length === 0 ? (
-                            <div className="col-span-3 bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center text-gray-500 text-sm">No ongoing events.</div>
-                        ) : allEvents.map(event => (
-                            <Link to={`/events/${event.event_id}`} key={event.event_id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer block">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                            {event.event_name ? event.event_name.substring(0, 2).toUpperCase() : 'EV'}
-                                        </div>
-                                        <h3 className="font-bold text-gray-800 text-sm">{event.event_name}</h3>
+                <ScrollSection id="events" title="Events">
+                    {allEvents.length === 0 ? (
+                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
+                            No ongoing events.
+                        </div>
+                    ) : allEvents.map(event => (
+                        <div 
+                            key={event.event_id}
+                            onClick={() => navigate(`/events/${event.event_id}`)}
+                            className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow snap-start cursor-pointer flex flex-col justify-between"
+                        >
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        {event.event_name ? event.event_name.substring(0, 2).toUpperCase() : 'EV'}
                                     </div>
-                                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                                    <h3 className="font-bold text-gray-800 text-sm">{event.event_name}</h3>
                                 </div>
-                                <div className="space-y-4 mb-4">
-                                    <div className="flex gap-3"><Calendar size={16} className="text-gray-400" /><span className="text-xs text-gray-600">{new Date(event.start_date).toLocaleDateString()}</span></div>
-                                    <div className="flex items-center gap-3 text-xs text-gray-500"><Users size={16} className="text-gray-400" /> {event.oc_count || 0} Committee Members</div>
-                                    <div className="flex items-center gap-3 text-xs text-gray-500"><FileText size={16} className="text-gray-400" /> {event.task_count || 0} Total Tasks</div>
-                                </div>
-                                <div className="pt-4 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold">
-                                    <span>View Details</span><ArrowRight size={14} />
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-                </section>
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                            </div>
+                            <div className="space-y-3 mb-6">
+                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
+                                <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Total Tasks</span></div>
+                            </div>
+                            <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold">
+                                <span>View Details</span><ArrowRight size={14} />
+                            </div>
+                        </div>
+                    ))}
+                </ScrollSection>
 
             </div>
         </div>
