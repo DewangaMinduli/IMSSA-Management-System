@@ -264,14 +264,23 @@ exports.getSkillMembers = async (req, res) => {
 // --- RECOMMENDATION REQUESTS ---
 exports.getRecommendationRequests = async (req, res) => {
     try {
-        const [rows] = await db.execute(`
-            SELECT lr.request_id, lr.student_user_id as student_id, lr.lecturer_user_id as academic_staff_id,
-                   lr.requested_at as request_date, lr.status, lr.purpose, lr.recipient_name, lr.company_name,
+        const { lecturer_id } = req.query;
+        let query = `
+            SELECT lr.*, 
                    u.full_name, u.student_number
             FROM letter_request lr
             JOIN user u ON lr.student_user_id = u.user_id
-            ORDER BY lr.requested_at DESC
-        `);
+        `;
+        let params = [];
+
+        if (lecturer_id) {
+            query += ' WHERE lr.lecturer_user_id = ?';
+            params.push(lecturer_id);
+        }
+
+        query += ' ORDER BY lr.requested_at DESC';
+
+        const [rows] = await db.execute(query, params);
         res.json(rows);
     } catch (error) {
         console.error("Error fetching recommendation requests:", error);
@@ -282,26 +291,27 @@ exports.getRecommendationRequests = async (req, res) => {
 // --- SUBMIT LETTER REQUEST ---
 exports.submitLetterRequest = async (req, res) => {
     try {
-        const { requested_from, purpose, relationship_details } = req.body;
-        const user_id = req.user_id || req.body.user_id;
+        const { student_user_id, lecturer_user_id, purpose, recipient_name, company_name } = req.body;
+
+        if (!student_user_id || !lecturer_user_id || !purpose || !recipient_name || !company_name) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
 
         const [result] = await db.execute(
-            'INSERT INTO recommendation_letter_request (user_id, requested_from, purpose, relationship_details) VALUES (?, ?, ?, ?)',
-            [user_id, requested_from, purpose, relationship_details]
+            'INSERT INTO letter_request (student_user_id, lecturer_user_id, purpose, recipient_name, company_name, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [student_user_id, lecturer_user_id, purpose, recipient_name, company_name, 'Pending']
         );
 
-        // Send notification to lecturer and Senior Treasurer
+        // Send notification to lecturer
         try {
-            // Get student name for notification
             const [studentRows] = await db.execute(
-                'SELECT name FROM user WHERE user_id = ?',
-                [user_id]
+                'SELECT full_name FROM user WHERE user_id = ?',
+                [student_user_id]
             );
-            const studentName = studentRows[0]?.name || 'A student';
+            const studentName = studentRows[0]?.full_name || 'A student';
             
             await notificationHelper.notifyLetterRequested(
-                result.insertId,
-                requested_from,
+                lecturer_user_id,
                 studentName,
                 purpose
             );
@@ -312,6 +322,103 @@ exports.submitLetterRequest = async (req, res) => {
         res.status(201).json({ message: 'Request submitted successfully', request_id: result.insertId });
     } catch (error) {
         console.error('Error submitting letter request:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// --- GET RECOMMENDATION LETTER DRAFT DATA ---
+exports.getRecommendationDraft = async (req, res) => {
+    try {
+        const requestId = req.params.requestId;
+
+        // 1. Get Request Info
+        const [requestRows] = await db.execute(`
+            SELECT lr.*, u_lec.full_name as lecturer_name
+            FROM letter_request lr
+            JOIN user u_lec ON lr.lecturer_user_id = u_lec.user_id
+            WHERE lr.request_id = ?`, [requestId]);
+        
+        if (requestRows.length === 0) return res.status(404).json({ message: "Request not found" });
+        const request = requestRows[0];
+        const studentId = request.student_user_id;
+
+        // 2. Student Basic Info
+        const [studentRows] = await db.execute(
+            'SELECT user_id, full_name, student_number, academic_year, academic_level, email FROM user WHERE user_id = ?',
+            [studentId]
+        );
+        const student = studentRows[0];
+
+        // 3. Official Roles (Executive / OC)
+        const [execRoles] = await db.execute(`
+            SELECT r.role_name, t.term_name
+            FROM member_role mr
+            JOIN role r ON mr.role_id = r.role_id
+            JOIN term t ON mr.term_id = t.term_id
+            WHERE mr.user_id = ? AND (mr.status = 'Active' OR mr.status = 'Past')
+            ORDER BY t.start_date DESC
+        `, [studentId]);
+
+        const [ocRoles] = await db.execute(`
+            SELECT e.event_name, ec.designation as role, t.term_name
+            FROM event_coordinator ec
+            JOIN event e ON ec.event_id = e.event_id
+            JOIN term t ON e.term_id = t.term_id
+            WHERE ec.user_id = ?
+            ORDER BY e.start_date DESC
+        `, [studentId]);
+
+        // 4. Tasks Successfully Completed (Verified)
+        const [tasks] = await db.execute(`
+            SELECT t.title as task_name, e.event_name, t.priority
+            FROM task_assignment ta
+            JOIN task t ON ta.task_id = t.task_id
+            JOIN event e ON t.event_id = e.event_id
+            WHERE ta.assigned_user_id = ? AND ta.status = 'Verified'
+            ORDER BY ta.assignment_id DESC
+        `, [studentId]);
+
+        // 5. Skills Acquired & Verified Points
+        const [skills] = await db.execute(`
+            SELECT st.name as skill_name, msl.points
+            FROM member_skill_level msl
+            JOIN skill_tag st ON msl.skill_tag_id = st.tag_id
+            WHERE msl.user_id = ?
+            ORDER BY msl.points DESC
+        `, [studentId]);
+
+        console.log(`[getRecommendationDraft] Successfully gathered data for student ${studentId}`);
+
+        res.json({
+            request,
+            student,
+            roles: [
+                ...execRoles.map(r => ({ ...r, type: 'Executive', role: r.role_name })), 
+                ...ocRoles.map(r => ({ ...r, type: 'OC Member' }))
+            ],
+            tasks,
+            skills
+        });
+
+    } catch (error) {
+        console.error("Draft Generation Error:", error);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+// --- DELETE LETTER REQUEST ---
+exports.deleteLetterRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [result] = await db.execute('DELETE FROM letter_request WHERE request_id = ?', [id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Request not found' });
+        }
+        
+        res.json({ message: 'Request deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting letter request:', error);
         res.status(500).json({ message: 'Server Error' });
     }
 };

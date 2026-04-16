@@ -301,7 +301,7 @@ const TaskDetails = () => {
 
                             {assignment.submission_file_url && (
                                 <div className="mb-4">
-                                    <p className="text-sm font-medium text-gray-700 mb-2">Google Drive Link:</p>
+                                    <p className="text-sm font-medium text-gray-700 mb-2">Submission Link:</p>
                                     <a
                                         href={assignment.submission_file_url}
                                         target="_blank"
@@ -309,7 +309,7 @@ const TaskDetails = () => {
                                         className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm bg-blue-50 p-3 rounded border border-blue-200"
                                     >
                                         <Download size={16} />
-                                        Open in Google Drive
+                                        Open Submission Link
                                     </a>
                                 </div>
                             )}

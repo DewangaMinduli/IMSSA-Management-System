@@ -21,6 +21,8 @@ router.get('/skills/members', userController.getSkillMembers);
 // GET / POST http://localhost:5000/api/users/requests
 router.get('/requests', userController.getRecommendationRequests);
 router.post('/requests', userController.submitLetterRequest);
+router.delete('/requests/:id', userController.deleteLetterRequest);
+router.get('/requests/:requestId/draft', userController.getRecommendationDraft);
 
 // GET http://localhost:5000/api/users/:id/analytics
 router.get('/:id/analytics', userController.getStudentAnalytics);

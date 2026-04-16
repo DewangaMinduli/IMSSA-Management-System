@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Calendar, Users, Clock, ArrowRight, Bell, Home, X } from 'lucide-react';
+import { Search, FileText, Calendar, Users, Clock, ArrowRight, Bell, Home, X, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import UserDropdown from '../../components/UserDropdown';
+import { useNotify } from '../../context/NotificationContext';
 
 const AcademicStaffDashboard = () => {
     const navigate = useNavigate();
+    const notify = useNotify();
     const { user } = useAuth();
 
     // --- STATE ---
@@ -31,7 +33,7 @@ const AcademicStaffDashboard = () => {
                 const [resEvents, resSkills, resRequests] = await Promise.all([
                     fetch('http://localhost:5000/api/events'),
                     fetch('http://localhost:5000/api/users/skills'),
-                    fetch('http://localhost:5000/api/users/requests'),
+                    fetch(`http://localhost:5000/api/users/requests?lecturer_id=${user.id}`),
                 ]);
                 if (resEvents.ok) setEvents(await resEvents.json());
                 if (resSkills.ok) setSkills(await resSkills.json());
@@ -74,6 +76,25 @@ const AcademicStaffDashboard = () => {
         } catch (err) { console.error('Skill members fetch error', err); }
         finally { setSkillMembersLoading(false); }
     };
+    const handleDeleteRequest = async (id) => {
+        if (!window.confirm("Are you sure you want to remove this request from the system?")) return;
+        try {
+            const res = await fetch(`http://localhost:5000/api/users/requests/${id}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                notify("Request removed successfully.", "success");
+                // Refresh data
+                const resReqs = await fetch('http://localhost:5000/api/users/requests');
+                if (resReqs.ok) setRecRequests(await resReqs.json());
+            } else {
+                notify("Failed to delete request.", "error");
+            }
+        } catch (err) {
+            console.error("Error deleting request", err);
+        }
+    };
+
     const ScrollSection = ({ id, title, children }) => (
         <div id={id} className="mb-10 scroll-mt-24">
             <div className="flex justify-between items-center mb-4 px-1">
@@ -87,26 +108,8 @@ const AcademicStaffDashboard = () => {
     );
 
     return (
-        <div className="pb-10 relative bg-gray-50 min-h-screen font-sans">
-
-            {/* ── HEADER ── */}
-            <div className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-6 py-3 flex justify-between items-center mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-700 font-bold text-xs">IM</div>
-                    <div>
-                        <h1 className="text-sm font-bold text-gray-900 leading-tight">Industrial Management Science Students' Association</h1>
-                        <p className="text-xs text-gray-500">University of Kelaniya</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <Bell size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer" />
-                    <Home size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700">Academic Staff</div>
-                    <UserDropdown user={user} colorClass="bg-slate-100 text-slate-700" />
-                </div>
-            </div>
-
-            <div className="max-w-7xl mx-auto px-6">
+        <div className="pb-10 relative bg-gray-50 min-h-screen font-sans px-8">
+            <div className="max-w-7xl mx-auto">
 
                 {/* ── BACK ARROW + GREETING (inline) + VIEW FEEDBACK ── */}
                 <div className="flex items-center justify-between mb-10">
@@ -358,17 +361,22 @@ const AcademicStaffDashboard = () => {
                                     <div>
                                         <h3 className="font-bold text-gray-900">{req.full_name}</h3>
                                         <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                                            <span>{req.student_no}</span><span>•</span>
-                                            <span>Requested on {new Date(req.request_date).toLocaleDateString()}</span>
+                                            <span>{req.student_number}</span><span>•</span>
+                                            <span>Requested on {req.requested_at ? new Date(req.requested_at).toLocaleDateString() : 'N/A'}</span>
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${req.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                                 {req.status}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors">
-                                    Generate Letter
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => navigate(`/academic-staff/recommendation-letter/${req.request_id}`)}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
+                                    >
+                                        Generate Letter
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>

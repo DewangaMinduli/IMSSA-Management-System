@@ -8,9 +8,14 @@ const FileUploadForm = ({ taskId, assignmentId, proofType, onSubmitSuccess, disa
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    const validateDriveLink = (link) => {
-        if (!link) return true; // Optional for some proof types
-        return link.includes('drive.google.com');
+    const validateLink = (link) => {
+        if (!link) return true;
+        try {
+            new URL(link);
+            return true;
+        } catch (_) {
+            return false;
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -34,8 +39,8 @@ const FileUploadForm = ({ taskId, assignmentId, proofType, onSubmitSuccess, disa
             return;
         }
 
-        if (!validateDriveLink(driveLink)) {
-            setError('Please provide a valid Google Drive link');
+        if (!validateLink(driveLink)) {
+            setError('Please provide a valid URL (e.g., https://example.com)');
             return;
         }
 
@@ -111,15 +116,15 @@ const FileUploadForm = ({ taskId, assignmentId, proofType, onSubmitSuccess, disa
                     </div>
                 )}
 
-                {/* Google Drive Link Section */}
+                {/* Submission Link Section */}
                 {proofType !== 'Description_Only' && (
                     <div className="mb-6">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Google Drive Link
+                            Submission Link
                             {proofType === 'File_Upload' && <span className="text-red-500"> *Required</span>}
                         </label>
                         <p className="text-xs text-gray-500 mb-3">
-                            Upload your work to Google Drive and share the link here. Make sure the link is public or accessible to anyone with the link.
+                            Provide a link to your completed work (Drive, GitHub, Dropbox, etc). Ensure the link is accessible to the committee.
                         </p>
                         
                         <div className="relative">
@@ -133,7 +138,7 @@ const FileUploadForm = ({ taskId, assignmentId, proofType, onSubmitSuccess, disa
                                     setDriveLink(e.target.value);
                                     setError('');
                                 }}
-                                placeholder="https://drive.google.com/file/d/..."
+                                placeholder="https://..."
                                 disabled={isSubmitting || disabled}
                                 className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed"
                             />
@@ -149,12 +154,12 @@ const FileUploadForm = ({ taskId, assignmentId, proofType, onSubmitSuccess, disa
                             )}
                         </div>
                         
-                        {driveLink && validateDriveLink(driveLink) && (
+                        {driveLink && validateLink(driveLink) && (
                             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
                                 <FileText size={20} className="text-blue-600 mt-0.5 flex-shrink-0" />
                                 <div className="flex-1">
                                     <p className="text-sm text-blue-700">
-                                        <strong>Google Drive link detected</strong> - Make sure the file is publicly accessible
+                                        <strong>Valid link detected</strong> - Ensure the destination is accessible to reviewers.
                                     </p>
                                 </div>
                             </div>

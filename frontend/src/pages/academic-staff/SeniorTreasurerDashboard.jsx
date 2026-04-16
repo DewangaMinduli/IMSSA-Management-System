@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Calendar, Users, Clock, ArrowRight, Bell, Home, X, Download, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { Search, FileText, Calendar, Users, Clock, ArrowRight, Bell, Home, X, Download, TrendingUp, TrendingDown, DollarSign, Trash2, Plus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import UserDropdown from '../../components/UserDropdown';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useNotify } from '../../context/NotificationContext';
+import BudgetReportModal from '../../components/BudgetReportModal';
 
 const SeniorTreasurerDashboard = () => {
     const navigate = useNavigate();
+    const notify = useNotify();
     const { user } = useAuth();
     const [financeData, setFinanceData] = useState({ accounts: [], transactions: [], events: [] });
     // Phase 5 States
@@ -24,6 +27,8 @@ const SeniorTreasurerDashboard = () => {
     const [selectedSkill, setSelectedSkill] = useState(null);
     const [skillMembers, setSkillMembers] = useState([]);
     const [skillMembersLoading, setSkillMembersLoading] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [selectedEvidence, setSelectedEvidence] = useState(null);
 
     const handleSkillClick = async (skill) => {
         setSelectedSkill(skill);
@@ -52,8 +57,7 @@ const SeniorTreasurerDashboard = () => {
 
     // Derived lists for dropdowns
     // Extract unique active event names from financeData.events
-    const uniqueEvents = [...new Set((financeData.events || []).map(e => e.event_name))];
-    // Extract unique account names from financeData.accounts
+    const uniqueEvents = [...new Set((allEvents || []).map(e => e.event_name))];
     const uniqueAccounts = [...new Set((financeData.accounts || []).map(a => a.account_name))];
 
     // Filtered Transactions
@@ -78,20 +82,28 @@ const SeniorTreasurerDashboard = () => {
 
     const fetchData = async () => {
         try {
-            // Fetch Finance Summary
-            const resFinance = await fetch('http://localhost:5000/api/finance/dashboard-summary');
-            if (resFinance.ok) setFinanceData(await resFinance.json());
+            // Fetch All Finance Data (Accounts + ALL Transactions for auditing)
+            const [resAccounts, resTransactions, resEvents, resSkills] = await Promise.all([
+                fetch('http://localhost:5000/api/finance/dashboard-summary'), // For accounts
+                fetch('http://localhost:5000/api/finance/transactions'),      // ALL transactions
+                fetch('http://localhost:5000/api/events'),
+                fetch('http://localhost:5000/api/users/skills')
+            ]);
 
-            // Fetch All Events
-            const resEvents = await fetch('http://localhost:5000/api/events');
+            if (resAccounts.ok && resTransactions.ok) {
+                const accountsData = await resAccounts.json();
+                const transactionsData = await resTransactions.json();
+                setFinanceData({
+                    accounts: accountsData.accounts,
+                    transactions: transactionsData
+                });
+            }
+
             if (resEvents.ok) setAllEvents(await resEvents.json());
-
-            // Fetch Skills
-            const resSkills = await fetch('http://localhost:5000/api/users/skills');
             if (resSkills.ok) setSkills(await resSkills.json());
 
             // Fetch Recommendation Requests
-            const resRequests = await fetch('http://localhost:5000/api/users/requests');
+            const resRequests = await fetch(`http://localhost:5000/api/users/requests?lecturer_id=${user.id}`);
             if (resRequests.ok) setRecRequests(await resRequests.json());
 
         } catch (err) {
@@ -119,17 +131,59 @@ const SeniorTreasurerDashboard = () => {
     };
 
     const handleApproveTransaction = async (id) => {
+        if (!window.confirm("Verify and approve this transaction? This will mark it as audited.")) return;
         try {
             const res = await fetch(`http://localhost:5000/api/finance/transaction/${id}/approve`, {
                 method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.id })
             });
             if (res.ok) {
+                notify("Transaction successfully verified.", "success");
                 fetchData();
             } else {
-                alert("Failed to approve transaction.");
+                notify("Failed to approve transaction.", "error");
             }
         } catch (err) {
             console.error("Error approving transaction", err);
+        }
+    };
+
+    const handleRejectTransaction = async (id) => {
+        const reason = window.prompt("Reason for rejection:");
+        if (reason === null) return;
+        
+        try {
+            const res = await fetch(`http://localhost:5000/api/finance/transaction/${id}/reject`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason, user_id: user.id })
+            });
+            if (res.ok) {
+                notify("Transaction rejected.", "success");
+                fetchData();
+            } else {
+                notify("Failed to reject transaction.", "error");
+            }
+        } catch (err) {
+            console.error("Error rejecting transaction", err);
+        }
+    };
+
+    const handleDeleteRequest = async (id) => {
+        if (!window.confirm("Are you sure you want to remove this request from the system?")) return;
+        try {
+            const res = await fetch(`http://localhost:5000/api/users/requests/${id}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                notify("Request removed successfully.", "success");
+                fetchData();
+            } else {
+                notify("Failed to delete request.", "error");
+            }
+        } catch (err) {
+            console.error("Error deleting request", err);
         }
     };
 
@@ -138,25 +192,8 @@ const SeniorTreasurerDashboard = () => {
     }, []);
 
     return (
-        <div className="pb-10 relative bg-gray-50 min-h-screen font-sans">
-            {/* HEADER */}
-            <div className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-6 py-3 flex justify-between items-center mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-700 font-bold text-xs">IM</div>
-                    <div>
-                        <h1 className="text-sm font-bold text-gray-900 leading-tight">Industrial Management Science Students' Association</h1>
-                        <p className="text-xs text-gray-500">University of Kelaniya</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <Bell size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer" />
-                    <Home size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700">Senior Treasurer</div>
-                    <UserDropdown user={user} colorClass="bg-slate-100 text-slate-700" />
-                </div>
-            </div>
-
-            <div className="max-w-7xl mx-auto px-6">
+        <div className="pb-10 relative bg-gray-50 min-h-screen font-sans px-8">
+            <div className="max-w-7xl mx-auto">
                 {/* TITLE with Back Button & Actions */}
                 <div className="flex items-center justify-between mb-10">
                     <div className="flex items-center gap-4">
@@ -172,9 +209,17 @@ const SeniorTreasurerDashboard = () => {
                             <p className="text-sm text-gray-400 mt-0.5">Welcome back.</p>
                         </div>
                     </div>
-                    <button onClick={() => window.location.href = '/academic-staff/feedback'} className="bg-teal-50 hover:bg-teal-100 text-teal-700 font-semibold px-4 py-2 rounded-lg text-sm transition-colors border border-teal-200 shadow-sm">
-                        View Feedback
-                    </button>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => setShowReportModal(true)}
+                            className="flex items-center gap-2 bg-gray-900 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-gray-100 transition-all text-[10px] uppercase tracking-widest"
+                        >
+                            <Download size={16} /> Generate Report
+                        </button>
+                        <button onClick={() => window.location.href = '/academic-staff/feedback'} className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm">
+                            View Feedback
+                        </button>
+                    </div>
                 </div>
 
                 {/* PROFILE CARD */}
@@ -301,46 +346,81 @@ const SeniorTreasurerDashboard = () => {
                             )}
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 max-h-[600px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
-                                <tr>
-                                    <th className="px-6 py-3">Date</th>
-                                    <th className="px-6 py-3">Description</th>
-                                    <th className="px-6 py-3">Event</th>
-                                    <th className="px-6 py-3">Account</th>
-                                    <th className="px-6 py-3">Amount</th>
-                                    <th className="px-6 py-3">Status</th>
-                                    <th className="px-6 py-3 text-right">Action</th>
-                                </tr>
+                            <thead className="bg-gray-50 text-gray-500 font-bold text-[10px] uppercase tracking-widest border-b border-gray-100">
+                                 <tr>
+                                     <th className="px-6 py-4">Audit Date</th>
+                                     <th className="px-6 py-4">Transaction / Event</th>
+                                     <th className="px-6 py-4">Fund Source</th>
+                                     <th className="px-6 py-4">Amount</th>
+                                     <th className="px-6 py-4">Evidence</th>
+                                     <th className="px-6 py-4">Status</th>
+                                     <th className="px-6 py-4 text-right">Review Actions</th>
+                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
                                 {filteredTransactions.map((t) => (
-                                    <tr key={t.transaction_id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-gray-500 font-bold text-xs">{new Date(t.transaction_date).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 text-gray-600">{t.description}</td>
-                                        <td className="px-6 py-4 text-gray-500">{t.event_name || '-'}</td>
-                                        <td className="px-6 py-4 text-gray-500">{t.account_name}</td>
-                                        <td className={`px-6 py-4 font-bold ${t.transaction_type === 'Expense' ? 'text-red-500' : 'text-green-500'}`}>
+                                    <tr key={t.transaction_id} className="hover:bg-gray-50 transition-all group">
+                                        <td className="px-6 py-4 text-gray-400 font-bold text-xs">{new Date(t.transaction_date).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-gray-700">{t.description}</div>
+                                            <div className="text-[10px] text-teal-600 font-bold uppercase tracking-widest mt-0.5">{t.event_name || 'General Association'}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-500 text-xs font-medium">{t.account_name}</td>
+                                        <td className={`px-6 py-4 font-black ${t.transaction_type === 'Expense' ? 'text-red-500' : 'text-teal-600'}`}>
                                             {t.transaction_type === 'Expense' ? `- Rs. ${Number(t.amount).toLocaleString()}` : `+ Rs. ${Number(t.amount).toLocaleString()}`}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded text-[10px] font-bold ${t.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                                                t.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                                                }`}>
+                                            <button 
+                                                onClick={() => setSelectedEvidence(t)}
+                                                className="group/btn flex flex-col gap-1.5 text-left hover:bg-teal-50 p-2 rounded-lg transition-all border border-transparent hover:border-teal-100"
+                                            >
+                                                {t.bill_proof_url ? (
+                                                    <span className="text-teal-600 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest">
+                                                        <Search size={12} /> View Proof
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-300 text-[9px] font-bold uppercase italic flex items-center gap-1">
+                                                        <X size={10} /> No Bill Proof
+                                                    </span>
+                                                )}
+                                                {t.missing_proof_reason && (
+                                                    <div className="flex items-center gap-1 text-[9px] font-black text-gray-400 uppercase tracking-tighter">
+                                                        <FileText size={10} /> Note Attached
+                                                    </div>
+                                                )}
+                                                <span className="text-[8px] text-teal-500 font-bold opacity-0 group-hover/btn:opacity-100 transition-opacity uppercase">Click for details</span>
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest shadow-sm ${
+                                                t.status === 'Approved' ? 'bg-teal-600 text-white' :
+                                                t.status === 'Pending' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-700'
+                                            }`}>
                                                 {t.status}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             {t.status === 'Pending' ? (
-                                                <button
-                                                    onClick={() => handleApproveTransaction(t.transaction_id)}
-                                                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors"
-                                                >
-                                                    Approve
-                                                </button>
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => handleApproveTransaction(t.transaction_id)}
+                                                        className="bg-teal-600 hover:bg-teal-700 text-white p-1.5 rounded-lg transition-transform active:scale-90"
+                                                        title="Approve"
+                                                    >
+                                                        <Plus size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRejectTransaction(t.transaction_id)}
+                                                        className="bg-white border border-red-200 text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-transform active:scale-90"
+                                                        title="Reject"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
                                             ) : (
-                                                <span className="text-gray-300 text-xs font-medium">Reviewed</span>
+                                                <span className="text-gray-300 text-[10px] font-bold uppercase tracking-widest">Finalized</span>
                                             )}
                                         </td>
                                     </tr>
@@ -555,14 +635,21 @@ const SeniorTreasurerDashboard = () => {
                                     <div>
                                         <h3 className="font-bold text-gray-900">{req.full_name}</h3>
                                         <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                                            <span>{req.student_no}</span><span>•</span><span>Requested on {new Date(req.request_date).toLocaleDateString()}</span>
+                                            <span>{req.student_number}</span><span>•</span><span>Requested on {req.requested_at ? new Date(req.requested_at).toLocaleDateString() : 'N/A'}</span>
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${req.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                                 {req.status}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors">Generate Letter</button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => navigate(`/academic-staff/recommendation-letter/${req.request_id}`)}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
+                                    >
+                                        Generate Letter
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -602,6 +689,83 @@ const SeniorTreasurerDashboard = () => {
                 </ScrollSection>
 
             </div>
+            {/* MODALS */}
+            <BudgetReportModal 
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                events={allEvents}
+            />
+            {/* MODAL: Evidence Detail */}
+            {selectedEvidence && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-gray-600/20 backdrop-blur-sm" onClick={() => setSelectedEvidence(null)}></div>
+                    <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <div>
+                                <h3 className="text-xs font-black text-teal-800 uppercase tracking-widest">Transaction Evidence</h3>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">Transaction ID: TXN-{selectedEvidence.transaction_id.toString().padStart(4, '0')}</p>
+                            </div>
+                            <button onClick={() => setSelectedEvidence(null)} className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-400 shadow-sm border border-transparent hover:border-gray-100">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-8">
+                            {/* Summary Bit */}
+                            <div className="flex justify-between items-center py-4 px-6 bg-teal-50 rounded-xl border border-teal-100">
+                                <div>
+                                    <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest leading-none mb-1">Audit Amount</p>
+                                    <p className="text-xl font-black text-teal-800">Rs. {Number(selectedEvidence.amount).toLocaleString()}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Record Date</p>
+                                    <p className="text-xs font-bold text-gray-600">{new Date(selectedEvidence.transaction_date).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+
+                            {/* Detailed Note */}
+                            <div>
+                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <FileText size={14} className="text-teal-600" /> Junior Treasurer's Justification
+                                </h4>
+                                <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                                    <p className="text-sm text-gray-600 font-medium leading-relaxed italic">
+                                        {selectedEvidence.missing_proof_reason ? `"${selectedEvidence.missing_proof_reason}"` : "No specific notes provided for this transaction."}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Proof Link */}
+                            {selectedEvidence.bill_proof_url ? (
+                                <div>
+                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <TrendingUp size={14} className="text-teal-600" /> Uploaded Document
+                                    </h4>
+                                    <a 
+                                        href={selectedEvidence.bill_proof_url} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="w-full flex items-center justify-center gap-3 bg-teal-600 text-white rounded-xl py-4 font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-teal-50 hover:bg-teal-700 transition-all active:scale-[0.98]"
+                                    >
+                                        <Search size={18} /> View High-Res Proof
+                                    </a>
+                                </div>
+                            ) : (
+                                <div className="bg-red-50 p-6 rounded-xl border border-red-100 flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-red-500 shadow-sm">
+                                        <X size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-none">No Proof Attached</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 flex justify-center">
+                            <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">IMSSA Audit Protocol Compliance</p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -146,44 +146,8 @@ const OrganizingCommitteeDashboard = () => {
     );
 
     return (
-        <div className="pb-10 bg-gray-50 min-h-screen font-sans">
-            {/* HEADER */}
-            <div className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-6 py-3 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div>
-                        <h1 className="text-sm font-bold text-gray-900 leading-tight">Industrial Management Science Students' Association</h1>
-                        <p className="text-[10px] text-gray-500">University of Kelaniya</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4 relative">
-                    <div className="relative">
-                        <Bell
-                            size={20}
-                            className="text-gray-500 hover:text-teal-600 cursor-pointer transition-colors"
-                            onClick={() => setShowNotifications(!showNotifications)}
-                        />
-                        {notifications.length > 0 && (
-                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
-                        )}
-                        {showNotifications && (
-                            <div className="absolute right-0 top-10 w-80 bg-white border border-gray-200 shadow-xl rounded-xl z-50">
-                                <div className="p-3 border-b border-gray-100 flex justify-between items-center">
-                                    <h4 className="text-sm font-bold text-gray-800">Notifications</h4>
-                                    <X size={14} className="cursor-pointer text-gray-400" onClick={() => setShowNotifications(false)} />
-                                </div>
-                                <div className="max-h-64 overflow-y-auto">
-                                    <div className="p-4 text-center text-gray-500 text-xs">No new notifications</div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <Home size={20} className="text-gray-500 cursor-pointer hover:text-teal-600 transition-colors" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Organizing Committee</div>
-                    <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
-                </div>
-            </div>
-
-            <div className="max-w-7xl mx-auto px-6 mt-8">
+        <div className="pb-10 bg-gray-50 min-h-screen font-sans px-8 mt-10">
+            <div className="max-w-7xl mx-auto">
                 {/* PAGE TITLE & ACTION */}
                 <div className="flex justify-between items-center mb-10">
                     <div className="flex items-center gap-4">

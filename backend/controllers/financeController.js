@@ -265,44 +265,154 @@ exports.approveTransaction = async (req, res) => {
     const { id } = req.params;
     const approverId = req.body.user_id || req.body.approved_by;
     
+    console.log(`[Finance] Approval attempt for Transaction ID: ${id} by User: ${approverId}`);
+
     try {
-        // Get transaction details before approving
-        const [transactionRows] = await db.execute(
-            `SELECT t.*, e.title as event_name 
+        // 1. Verify existence and get metadata for notifications
+        const [rows] = await db.execute(
+            `SELECT t.*, e.event_name 
              FROM transaction t 
              LEFT JOIN event e ON t.event_id = e.event_id 
              WHERE t.transaction_id = ?`,
             [id]
         );
         
-        const transaction = transactionRows[0];
-        
+        if (rows.length === 0) {
+            console.error(`[Finance] Transaction ${id} not found for approval`);
+            return res.status(404).json({ message: 'Transaction not found or already deleted' });
+        }
+
+        const transaction = rows[0];
+
+        // 2. Perform Update
         const [result] = await db.execute(
             "UPDATE transaction SET status = 'Approved' WHERE transaction_id = ?",
             [id]
         );
         
+        console.log(`[Finance] Update result for ${id}:`, result.affectedRows, "rows affected");
+
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Transaction not found or already processed' });
+            return res.status(400).json({ message: 'Failed to update transaction status' });
         }
         
-        // Send notification to Junior Treasurer (who recorded the transaction)
-        if (transaction && transaction.recorded_by_id) {
+        // 3. Optional Notification (Non-blocking)
+        if (transaction.recorded_by_id) {
             try {
                 await notificationHelper.notifyTransactionVerified(
                     transaction.event_id, 
-                    transaction.event_name || 'Unknown Event', 
-                    approverId,
+                    transaction.event_name || 'General Association', 
+                    approverId || 1,
                     transaction.recorded_by_id
                 );
             } catch (notifyErr) {
-                console.error('[approveTransaction] Notification error:', notifyErr);
+                console.error('[Finance] Notification error (silent):', notifyErr);
             }
         }
         
-        res.json({ message: 'Transaction successfully approved' });
+        return res.json({ message: 'Transaction successfully approved' });
     } catch (error) {
-        console.error('Approve Transaction Error:', error);
-        res.status(500).json({ message: 'Failed to approve transaction' });
+        console.error('[Finance] Critical Approval Error:', error);
+        return res.status(500).json({ message: 'Internal server error during approval' });
     }
 };
+
+// Reject Transaction
+exports.rejectTransaction = async (req, res) => {
+    const { id } = req.params;
+    const { reason, user_id } = req.body;
+
+    try {
+        const [rows] = await db.execute('SELECT * FROM transaction WHERE transaction_id = ?', [id]);
+        if (rows.length === 0) return res.status(404).json({ message: 'Transaction not found' });
+        
+        const transaction = rows[0];
+
+        await db.execute(
+            "UPDATE transaction SET status = 'Rejected', missing_proof_reason = ? WHERE transaction_id = ?",
+            [reason || 'Rejected by Senior Treasurer', id]
+        );
+
+        res.json({ message: 'Transaction rejected' });
+    } catch (error) {
+        console.error('Reject Error:', error);
+        res.status(500).json({ message: 'Failed to reject' });
+    }
+};
+
+// Get Report Data
+exports.getReportData = async (req, res) => {
+    const { start_date, end_date, event_id } = req.query;
+    try {
+        let sql = `
+            SELECT t.*, e.event_name, a.account_name 
+            FROM transaction t
+            LEFT JOIN event e ON t.event_id = e.event_id
+            LEFT JOIN financial_account a ON t.account_id = a.account_id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (start_date) {
+            sql += ' AND t.transaction_date >= ?';
+            params.push(start_date);
+        }
+        if (end_date) {
+            sql += ' AND t.transaction_date <= ?';
+            params.push(end_date);
+        }
+        if (event_id && event_id !== 'all') {
+            sql += ' AND t.event_id = ?';
+            params.push(event_id);
+        }
+
+        sql += ' ORDER BY t.transaction_date ASC';
+
+        const [transactions] = await db.execute(sql, params);
+
+        // Metrics Helper
+        const calcTotal = (list, type, statusList) => {
+            return list
+                .filter(t => t.transaction_type === type && statusList.includes(t.status))
+                .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+        };
+
+        // Confirmed Metrics (Approved or Verified)
+        const confirmedStatus = ['Approved', 'Verified'];
+        const totalIncome = calcTotal(transactions, 'Income', confirmedStatus);
+        const totalExpense = calcTotal(transactions, 'Expense', confirmedStatus);
+
+        // Pending Metrics (Under Review)
+        const pendingStatus = ['Pending'];
+        const pendingIncome = calcTotal(transactions, 'Income', pendingStatus);
+        const pendingExpense = calcTotal(transactions, 'Expense', pendingStatus);
+
+        // Group by Event (Confirmed only)
+        const eventSummary = transactions.filter(t => confirmedStatus.includes(t.status)).reduce((acc, t) => {
+            const key = t.event_name || 'General / Membership';
+            if (!acc[key]) acc[key] = { income: 0, expense: 0, name: key };
+            if (t.transaction_type === 'Income') acc[key].income += parseFloat(t.amount || 0);
+            else acc[key].expense += parseFloat(t.amount || 0);
+            return acc;
+        }, {});
+
+        res.json({ 
+            transactions,
+            metrics: {
+                totalIncome,
+                totalExpense,
+                netBalance: totalIncome - totalExpense,
+                pendingIncome,
+                pendingExpense,
+                projectedBalance: (totalIncome + pendingIncome) - (totalExpense + pendingExpense),
+                transactionCount: transactions.length,
+                pendingCount: transactions.filter(t => t.status === 'Pending').length
+            },
+            eventSummary: Object.values(eventSummary)
+        });
+    } catch (error) {
+        console.error('Error fetching report data:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+

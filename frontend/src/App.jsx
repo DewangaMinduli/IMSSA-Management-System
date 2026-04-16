@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import Sidebar from './components/Sidebar';
+import Header from './components/Header';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -23,6 +24,7 @@ import AcademicFeedback from './pages/academic-staff/AcademicFeedback';
 import CreateEvent from './pages/executive/CreateEvent';
 import NominateTerm from './pages/executive/NominateTerm';
 import TaskDetails from './pages/Shared/TaskDetails';
+import RecommendationLetterDraft from './pages/academic-staff/RecommendationLetterDraft';
 
 // --- THE "FIXED FRAME" LAYOUT ---
 const Layout = ({ children }) => (
@@ -31,19 +33,21 @@ const Layout = ({ children }) => (
     <Sidebar />
 
     {/* 2. RIGHT AREA (Header + Content + Footer) */}
-    <div className="flex-1 ml-64 flex flex-col h-screen">
+    <div className="flex-1 flex flex-col h-screen min-w-0">
+      {/* A. FIXED HEADER */}
+      <Header />
 
-      {/* A. CONTENT AREA (This is the ONLY part that scrolls vertically) */}
+      {/* B. CONTENT AREA (This is the part that scrolls vertically) */}
       <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth">
         {children}
+        
+        {/* C. FOOTER (Inside scroll area so it appears at bottom of content) */}
+        <footer className="py-6 border-t border-gray-100 flex items-center justify-center bg-white/50">
+          <p className="text-[10px] text-gray-400 font-medium">
+            © {new Date().getFullYear()} Industrial Management Science Students' Association (IMSSA). All rights reserved.
+          </p>
+        </footer>
       </main>
-
-      {/* B. FIXED FOOTER (Stays at bottom) */}
-      <footer className="h-10 bg-white border-t border-gray-200 flex items-center justify-center shrink-0 z-50">
-        <p className="text-[10px] text-gray-400 font-medium">
-          © 2025 Industrial Management Science Students' Association. All rights reserved.
-        </p>
-      </footer>
     </div>
   </div>
 );
@@ -60,8 +64,8 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify" element={<VerifyEmail />} />
 
-          <Route path="/events/:eventId" element={<UnifiedEventDetails />} />
-          <Route path="/tasks/:taskId" element={<TaskDetails />} />
+          <Route element={<Layout><UnifiedEventDetails /></Layout>} path="/events/:eventId" />
+          <Route element={<Layout><TaskDetails /></Layout>} path="/tasks/:taskId" />
 
           <Route path="/member/*" element={
             <Layout>
@@ -100,6 +104,7 @@ export default function App() {
                 <Route path="dashboard" element={<AcademicStaffDashboard />} />
                 <Route path="senior-treasurer-dashboard" element={<SeniorTreasurerDashboard />} />
                 <Route path="feedback" element={<AcademicFeedback />} />
+                <Route path="recommendation-letter/:requestId" element={<RecommendationLetterDraft />} />
               </Routes>
             </Layout>
           } />

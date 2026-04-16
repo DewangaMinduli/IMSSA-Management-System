@@ -6,10 +6,12 @@ const financeController = require('../controllers/financeController');
 
 router.get('/dashboard-summary', financeController.getDashboardSummary);
 router.get('/transactions', financeController.getAllTransactions);
+router.get('/report-data', financeController.getReportData);
 router.post('/transaction', financeController.addTransaction);
 router.put('/transaction/:id', financeController.updateTransaction);
 router.delete('/transaction/:id', financeController.deleteTransaction);
 router.put('/transaction/:id/approve', financeController.approveTransaction);
+router.put('/transaction/:id/reject', financeController.rejectTransaction);
 router.get('/budgets', financeController.getEventBudgets);
 
 module.exports = router;

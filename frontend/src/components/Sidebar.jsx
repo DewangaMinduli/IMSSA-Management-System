@@ -33,6 +33,9 @@ const Sidebar = () => {
     }
   };
 
+  const isAcademicStaff = user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' ||
+    user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer' || user.role_name === 'Academic Staff' || user.role_name === 'Academic_Staff';
+
   const menus = [
     // COMMON: Dynamic Home Link
     {
@@ -65,12 +68,12 @@ const Sidebar = () => {
       name: 'Finance Overview',
       path: '/exec/junior-treasurer-dashboard#financial-overview',
       id: 'financial-overview',
-      show: (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer' || user.hierarchy_level === 5) && user.role_name !== 'President'
+      show: (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer' || user.hierarchy_level === 5) && user.role_name !== 'President' && !isAcademicStaff
     },
 
     // ACADEMIC STAFF & SENIOR TREASURER
     {
-      name: 'Accounts Summary',
+      name: 'Financial Overview',
       path: '/academic-staff/senior-treasurer-dashboard#financial-overview',
       id: 'financial-overview',
       show: user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer'
@@ -91,44 +94,44 @@ const Sidebar = () => {
       name: 'Student Search',
       path: (user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer') ? '/academic-staff/senior-treasurer-dashboard#student-search' : '/academic-staff/dashboard',
       id: 'student-search',
-      show: user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' || user.role_name === 'Academic Staff' || user.role_name === 'Academic_Staff'
+      show: isAcademicStaff
     },
     {
       name: 'Skill Inventory',
       path: (user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer') ? '/academic-staff/senior-treasurer-dashboard#skill-inventory' : '/academic-staff/dashboard#skill-inventory',
       id: 'skill-inventory',
-      show: user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' || user.role_name === 'Academic Staff' || user.role_name === 'Academic_Staff'
+      show: isAcademicStaff
     },
     {
       name: 'Recommendation Requests',
       path: (user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer') ? '/academic-staff/senior-treasurer-dashboard#recommendation-requests' : '/academic-staff/dashboard#recommendation-requests',
       id: 'recommendation-requests',
-      show: user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' || user.role_name === 'Academic Staff' || user.role_name === 'Academic_Staff'
+      show: isAcademicStaff
     },
     {
       name: 'Events',
       path: (user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer') ? '/academic-staff/senior-treasurer-dashboard#events' : '/academic-staff/dashboard#events',
       id: 'events',
-      show: user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' || user.role_name === 'Academic Staff' || user.role_name === 'Academic_Staff'
+      show: isAcademicStaff
     },
     // MEMBER (Students)
     {
       name: 'My Tasks',
       path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#tasks' : '/member/dashboard',
       id: 'tasks',
-      show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer'
+      show: user.user_type === 'Student' && user.hierarchy_level < 4 && !isAcademicStaff
     },
     {
       name: 'Volunteer Opportunities',
       path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#volunteer' : '/member/dashboard#volunteer',
       id: 'volunteer',
-      show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer'
+      show: user.user_type === 'Student' && user.hierarchy_level < 4 && !isAcademicStaff
     },
     {
       name: 'Events',
       path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#events' : '/member/dashboard',
       id: 'events',
-      show: user.user_type === 'Student' && user.hierarchy_level < 4 && user.role_name !== 'Junior Treasurer' && user.role_name !== 'Junior_Treasurer'
+      show: user.user_type === 'Student' && user.hierarchy_level < 4 && !isAcademicStaff
     },
 
     // EXEC (Level 4+)
@@ -136,25 +139,25 @@ const Sidebar = () => {
       name: 'Tasks to Approve',
       path: (user.role_name === 'President') ? '/exec/president-dashboard#approve-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#approve-tasks' : '/exec/dashboard#approve-tasks',
       id: 'approve-tasks',
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer'
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && !isAcademicStaff
     },
     {
       name: 'My Tasks',
       path: (user.role_name === 'President') ? '/exec/president-dashboard#my-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#my-tasks' : '/exec/dashboard#my-tasks',
       id: 'my-tasks',
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer'
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && !isAcademicStaff
     },
     {
       name: 'Volunteer Opportunities',
       path: (user.role_name === 'President') ? '/exec/president-dashboard#volunteer-opportunities' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#volunteer-opportunities' : '/exec/dashboard#volunteer-opportunities',
       id: 'volunteer-opportunities',
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer'
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && !isAcademicStaff
     },
     {
       name: 'Events',
       path: (user.role_name === 'President') ? '/exec/president-dashboard#events' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#events' : '/exec/dashboard#events',
       id: 'events',
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && user.role_name !== 'Senior Treasurer' && user.role_name !== 'Senior_Treasurer'
+      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && !isAcademicStaff
     },
     {
       name: 'Term Management',
@@ -167,12 +170,10 @@ const Sidebar = () => {
   ];
 
   // Role-based sidebar color
-  const isAcademicStaff = user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' ||
-    user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer';
   const sidebarBg = isAcademicStaff ? 'bg-slate-100' : 'bg-teal-50/50';
 
   return (
-    <aside className={`w-64 ${sidebarBg} border-r border-gray-200 h-screen fixed left-0 top-0 text-gray-600 flex flex-col z-50 shadow-sm font-sans`}>
+    <aside className={`w-64 flex-shrink-0 ${sidebarBg} border-r border-gray-200 h-full text-gray-600 flex flex-col z-50 shadow-sm font-sans`}>
 
       {/* Header */}
       <div className="p-6 flex items-center gap-3 border-b border-gray-100">

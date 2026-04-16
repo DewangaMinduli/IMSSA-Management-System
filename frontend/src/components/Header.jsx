@@ -112,14 +112,8 @@ const Header = () => {
     };
 
     return (
-        <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-6 py-3 flex justify-between items-center bg-white">
-            <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-700 font-bold text-xs">IM</div>
-                <div>
-                    <h1 className="text-sm font-bold text-gray-900 leading-tight">Industrial Management Science Students' Association</h1>
-                    <p className="text-[10px] text-gray-500">University of Kelaniya</p>
-                </div>
-            </div>
+        <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-8 py-3 flex justify-between items-center bg-white">
+            <div className="flex-1"></div>
             <div className="flex items-center gap-4 relative">
                 <div className="relative" id="notification-container">
                     <Bell

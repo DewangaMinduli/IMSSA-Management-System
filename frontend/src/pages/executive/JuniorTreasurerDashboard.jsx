@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import VolunteerTaskModal from '../../components/VolunteerTaskModal';
 import UserDropdown from '../../components/UserDropdown';
+import BudgetReportModal from '../../components/BudgetReportModal';
 
 const JuniorTreasurerDashboard = () => {
     const { user } = useAuth();
@@ -217,23 +218,20 @@ const JuniorTreasurerDashboard = () => {
     };
 
     const handleDelete = async (tx) => {
-        if (tx.status === 'Approved' || tx.status === 'Verified') {
-            notify("This transaction is already audited and cannot be deleted.", "error");
-            return;
-        }
-        if (!window.confirm("Are you sure you want to delete this transaction? This will also revert the account balance.")) return;
-        
+        if (!window.confirm("Are you sure you want to delete this transaction? This action will permanently remove the record and adjust the corresponding account balance.")) return;
         try {
-            const res = await fetch(`http://localhost:5000/api/finance/transaction/${tx.transaction_id}`, { method: 'DELETE' });
-            const resData = await res.json();
+            const res = await fetch(`http://localhost:5000/api/finance/transaction/${tx.transaction_id}`, {
+                method: 'DELETE',
+            });
             if (res.ok) {
-                notify("Transaction Deleted");
+                notify("Transaction successfully removed", "success");
                 fetchDashboardData();
             } else {
-                notify(resData.message || "Delete failed", 'error');
+                const data = await res.json();
+                notify(data.message || "Failed to remove transaction", "error");
             }
         } catch (err) {
-            notify("Network Error", 'error');
+            notify("Connection error: Unable to reach server", "error");
         }
     };
 
@@ -291,31 +289,8 @@ const JuniorTreasurerDashboard = () => {
     if (!user) return <div className="p-8">Redirecting...</div>;
 
     return (
-        <div className="pb-10 bg-gray-50 min-h-screen font-sans relative">
-
-            {/* Global notifications handled by Provider */}
-
-            {/* 1. HEADER */}
-            <div className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-6 py-3 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div>
-                        <h1 className="text-sm font-bold text-gray-900 leading-tight">Industrial Management Science Students' Association</h1>
-                        <p className="text-[10px] text-gray-500">University of Kelaniya</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="relative">
-                        <Bell size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer" />
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
-                    </div>
-                    <Home size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer transition-colors"
-                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Junior Treasurer</div>
-                    <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
-                </div>
-            </div>
-
-            <div className="max-w-7xl mx-auto px-6 mt-8">
+        <div className="pb-10 bg-gray-50 min-h-screen font-sans relative px-8 mt-10">
+            <div className="max-w-7xl mx-auto">
 
                 {/* BACK ARROW + GREETING (inline) & ACTION BUTTONS */}
                 <div className="flex justify-between items-center mb-10">
@@ -461,7 +436,7 @@ const JuniorTreasurerDashboard = () => {
                                 </div>
                             )}
 
-                            <div className="overflow-x-auto">
+                            <div className="max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 pr-2 overflow-x-auto">
                                 <table className="w-full text-sm text-left">
                                     <thead className="bg-gray-50/50 text-gray-500 uppercase font-bold text-[10px] tracking-widest">
                                         <tr>
@@ -483,9 +458,22 @@ const JuniorTreasurerDashboard = () => {
                                                     <div className="text-[10px] text-blue-500 font-medium uppercase mt-0.5">{tx.event_name || 'General Association'} • {tx.account_name}</div>
                                                 </td>
                                                 <td className="p-4 text-right">
-                                                    <div className={`font-black ${tx.transaction_type === 'Income' ? 'text-green-600' : 'text-red-500'}`}>
+                                                    <div className={`font-black ${tx.transaction_type === 'Income' ? 'text-teal-600' : 'text-red-500'}`}>
                                                         {tx.transaction_type === 'Income' ? '+' : '-'} {Number(tx.amount).toLocaleString()}
                                                     </div>
+                                                    <div className="flex justify-end mt-1">
+                                                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
+                                                            tx.status === 'Approved' ? 'bg-teal-100 text-teal-700' :
+                                                            tx.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-600'
+                                                        }`}>
+                                                            {tx.status}
+                                                        </span>
+                                                    </div>
+                                                    {tx.status === 'Rejected' && tx.missing_proof_reason && (
+                                                        <div className="text-[9px] text-red-400 italic mt-1 font-bold text-right max-w-[200px] ml-auto">
+                                                            Reason: {tx.missing_proof_reason}
+                                                        </div>
+                                                    )}
                                                     <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-all">
                                                         <button 
                                                             onClick={() => handleEdit(tx)}
@@ -641,7 +629,7 @@ const JuniorTreasurerDashboard = () => {
                             <h4 className="font-bold text-gray-800 text-sm mb-2">{task.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-grow">{task.desc}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
-                                <Clock size={14} /> Due: {task.due}
+                                <Clock size={14} /> Due: {new Date(task.due).toLocaleDateString()}
                             </div>
                             <div className="mb-4">
                                 <span className="px-2 py-1 bg-teal-100 text-teal-800 rounded text-[10px] font-bold">Event: {task.event}</span>
@@ -685,7 +673,7 @@ const JuniorTreasurerDashboard = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {op.due}</div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {new Date(op.due).toLocaleDateString()}</div>
                                 <div className="mb-4"><span className={`px-2 py-1 rounded text-[10px] font-bold ${op.color}`}>Event: {op.event}</span></div>
                                 <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
                                     <span className="text-xs font-medium">Click to View</span><ChevronRight size={14} />
@@ -860,6 +848,12 @@ const JuniorTreasurerDashboard = () => {
                     </div>
                 </div>
             )}
+            {/* MODALS */}
+            <BudgetReportModal 
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                events={data.events}
+            />
         </div>
     );
 };
