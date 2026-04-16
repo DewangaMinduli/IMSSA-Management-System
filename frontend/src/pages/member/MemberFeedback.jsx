@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { MessageSquare, Send, Shield, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { useNotify } from '../../context/NotificationContext';
 
 const MemberFeedback = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const notify = useNotify();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [message, setMessage] = useState('');
@@ -30,11 +32,11 @@ const MemberFeedback = () => {
         })
         .then(res => {
             if (res.ok) setSuccess(true);
-            else alert("Failed to send feedback");
+            else notify("Failed to send feedback", "error");
         })
         .catch(err => {
             console.error("Error sending feedback", err);
-            alert("Network error sending feedback");
+            notify("Network error sending feedback", "error");
         })
         .finally(() => setLoading(false));
     };

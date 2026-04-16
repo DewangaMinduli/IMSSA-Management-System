@@ -193,28 +193,75 @@ const SeniorTreasurerDashboard = () => {
                     </div>
                 </Link>
 
-                {/* 1. ACCOUNTS SUMMARY */}
-                <section id="financial-overview" className="scroll-mt-24">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Accounts Summary</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        {[...financeData.accounts]
-                            .sort((a, b) => Number(b.current_balance) - Number(a.current_balance))
-                            .map(acc => (
-                                <div key={acc.account_id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                                    <h3 className="text-xs font-semibold text-gray-500 mb-1">{acc.account_name}</h3>
-                                    <p className="text-xl font-bold text-blue-600 truncate">
+                {/* 1. FINANCIAL OVERVIEW */}
+                <section id="financial-overview" className="mb-10 scroll-mt-24">
+                    <h2 className="text-lg font-bold text-gray-800 mb-4">Financial Overview</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Total Net Worth Card (Matched with JT) */}
+                        <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-5 rounded-xl shadow-md text-white border-0 flex flex-col justify-between relative overflow-hidden h-full">
+                            <TrendingUp className="absolute -right-2 -bottom-2 text-white/10 opacity-20" size={100} />
+                            <div>
+                                <p className="text-[10px] uppercase font-bold tracking-widest text-blue-100/80">Total Net Worth</p>
+                                <h3 className="text-xl font-black mt-2">
+                                    Rs. {financeData.accounts.reduce((sum, acc) => sum + parseFloat(acc.current_balance || 0), 0).toLocaleString()}
+                                </h3>
+                            </div>
+                        </div>
+
+                        {financeData.accounts.map(acc => (
+                            <div key={acc.account_id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group h-full transition-all hover:shadow-md">
+                                <div className="relative z-10">
+                                    <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">{acc.account_name}</p>
+                                    <h3 className={`text-xl font-bold mt-1.5 ${Number(acc.current_balance) < 0 ? 'text-red-500' : 'text-gray-800'}`}>
                                         Rs. {Number(acc.current_balance).toLocaleString()}
+                                    </h3>
+                                </div>
+                                <div className="mt-4 flex items-center justify-between">
+                                    <span className="text-[8px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded">Active Account</span>
+                                    <ArrowRight size={14} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                {/* 2. PENDING ACTION SUMMARY */}
+                <section id="pending-approvals" className="mb-10 scroll-mt-24">
+                    <div className="flex items-center gap-2 mb-4">
+                        <h2 className="text-lg font-bold text-gray-800">Pending Financial Approvals</h2>
+                        {financeData.transactions.filter(t => t.status === 'Pending').length > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                                {financeData.transactions.filter(t => t.status === 'Pending').length} ACTION REQUIRED
+                            </span>
+                        )}
+                    </div>
+                    
+                    {financeData.transactions.filter(t => t.status === 'Pending').length === 0 ? (
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center text-gray-500 text-sm">
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-500">
+                                    <TrendingUp size={24} />
+                                </div>
+                                <p>All transactions have been reviewed. No pending approvals.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-yellow-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600">
+                                    <Clock size={24} />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-gray-800">Review Required</p>
+                                    <p className="text-xs text-gray-500">
+                                        You have <strong>{financeData.transactions.filter(t => t.status === 'Pending').length}</strong> transactions totaling 
+                                        <strong> Rs. {financeData.transactions.filter(t => t.status === 'Pending').reduce((sum, t) => sum + parseFloat(t.amount), 0).toLocaleString()} </strong>
+                                        awaiting your verification.
                                     </p>
                                 </div>
-                            ))}
-                    </div>
-
-                    {/* 2. PENDING FINANCE APPROVALS (Budget Report) */}
-                    <h2 id="pending-approvals" className="text-lg font-bold text-gray-800 mb-4 scroll-mt-24">Pending Finance Approvals</h2>
-                    {/* Placeholder for dynamic pending approvals */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-10 text-center text-gray-500 text-sm">
-                        No pending financial approvals at this time.
-                    </div>
+                            </div>
+                        </div>
+                    )}
                 </section>
 
                 {/* 3. TRANSACTIONS TABLE */}

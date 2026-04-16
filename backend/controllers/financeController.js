@@ -41,9 +41,27 @@ exports.addTransaction = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // 1. Insert Transaction
-        const recordedById = req.user ? req.user.id : 1; // Fallback to 1 if no auth middleware
+        // 1. Check current balance if it's an expense
+        if (type === 'Expense') {
+            const [accRows] = await connection.execute(
+                'SELECT current_balance FROM financial_account WHERE account_id = ? FOR UPDATE',
+                [account_id]
+            );
+            
+            if (accRows.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({ message: 'Account not found' });
+            }
 
+            const currentBalance = parseFloat(accRows[0].current_balance);
+            if (currentBalance < parseFloat(amount)) {
+                await connection.rollback();
+                return res.status(400).json({ message: `Insufficient funds. Current balance is Rs. ${currentBalance.toLocaleString()}` });
+            }
+        }
+
+        // 2. Insert Transaction
+        const recordedById = req.user ? req.user.id : 1;
         const [result] = await connection.execute(
             `INSERT INTO transaction 
             (transaction_date, description, transaction_type, amount, account_id, event_id, bill_proof_url, missing_proof_reason, recorded_by_id, status) 
@@ -51,7 +69,7 @@ exports.addTransaction = async (req, res) => {
             [date, description, type, amount, account_id, event_id || null, proof_url || null, notes || null, recordedById]
         );
 
-        // 2. Update Account Balance
+        // 3. Update Account Balance
         const signedAmount = type === 'Income' ? parseFloat(amount) : -parseFloat(amount);
         await connection.execute(
             'UPDATE financial_account SET current_balance = current_balance + ? WHERE account_id = ?',
@@ -87,16 +105,35 @@ exports.addTransaction = async (req, res) => {
 
 exports.getAllTransactions = async (req, res) => {
     try {
-        const [transactions] = await db.execute(`
+        const { event_id, account_id } = req.query;
+        let query = `
             SELECT t.*, e.event_name, a.account_name 
             FROM transaction t
             LEFT JOIN event e ON t.event_id = e.event_id
             LEFT JOIN financial_account a ON t.account_id = a.account_id
-            ORDER BY t.transaction_date DESC
-        `);
+        `;
+        let params = [];
+        let conditions = [];
+
+        if (event_id) {
+            conditions.push('t.event_id = ?');
+            params.push(event_id);
+        }
+        if (account_id) {
+            conditions.push('t.account_id = ?');
+            params.push(account_id);
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        query += ' ORDER BY t.transaction_date DESC';
+
+        const [transactions] = await db.execute(query, params);
         res.json(transactions);
     } catch (error) {
-        console.error(error);
+        console.error('Error fetching transactions:', error);
         res.status(500).json({ message: 'Error fetching transactions' });
     }
 };
@@ -109,6 +146,117 @@ exports.getEventBudgets = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error fetching budgets' });
+    }
+};
+
+// Update Transaction
+exports.updateTransaction = async (req, res) => {
+    const { id } = req.params;
+    const { date, description, type, amount, account_id, event_id, proof_url, notes } = req.body;
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Get Old Transaction Data
+        const [oldRows] = await connection.execute('SELECT * FROM transaction WHERE transaction_id = ?', [id]);
+        if (oldRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Transaction not found' });
+        }
+        const oldTx = oldRows[0];
+
+        // 2. Revert Old Balance
+        const oldSignedAmount = oldTx.transaction_type === 'Income' ? parseFloat(oldTx.amount) : -parseFloat(oldTx.amount);
+        await connection.execute(
+            'UPDATE financial_account SET current_balance = current_balance - ? WHERE account_id = ?',
+            [oldSignedAmount, oldTx.account_id]
+        );
+
+        // 3. Check New Balance (Validation)
+        // Benefit: We check after revert to see if the new amount is okay
+        const [accRows] = await connection.execute(
+            'SELECT current_balance FROM financial_account WHERE account_id = ? FOR UPDATE',
+            [account_id]
+        );
+        const currentBalanceAfterRevert = parseFloat(accRows[0].current_balance);
+        const newSignedAmount = type === 'Income' ? parseFloat(amount) : -parseFloat(amount);
+
+        if (currentBalanceAfterRevert + newSignedAmount < 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'Insufficient funds for this update' });
+        }
+
+        // 4. Update Transaction
+        await connection.execute(
+            `UPDATE transaction SET 
+            transaction_date = ?, description = ?, transaction_type = ?, amount = ?, 
+            account_id = ?, event_id = ?, bill_proof_url = ?, missing_proof_reason = ? 
+            WHERE transaction_id = ?`,
+            [date, description, type, amount, account_id, event_id || null, proof_url || null, notes || null, id]
+        );
+
+        // 5. Apply New Balance
+        await connection.execute(
+            'UPDATE financial_account SET current_balance = current_balance + ? WHERE account_id = ?',
+            [newSignedAmount, account_id]
+        );
+
+        await connection.commit();
+        res.json({ message: 'Transaction updated successfully' });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Update Error:', error);
+        res.status(500).json({ message: 'Failed to update transaction' });
+    } finally {
+        connection.release();
+    }
+};
+
+// Delete Transaction
+exports.deleteTransaction = async (req, res) => {
+    const { id } = req.params;
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Get Transaction Data
+        const [rows] = await connection.execute('SELECT * FROM transaction WHERE transaction_id = ?', [id]);
+        if (rows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Transaction not found' });
+        }
+        const tx = rows[0];
+
+        // 2. Revert Balance
+        const signedAmount = tx.transaction_type === 'Income' ? parseFloat(tx.amount) : -parseFloat(tx.amount);
+        
+        // Before reverting, if it was an income, check if removing it makes balance negative
+        if (tx.transaction_type === 'Income') {
+            const [acc] = await connection.execute('SELECT current_balance FROM financial_account WHERE account_id = ?', [tx.account_id]);
+            if (parseFloat(acc[0].current_balance) - parseFloat(tx.amount) < 0) {
+                 await connection.rollback();
+                 return res.status(400).json({ message: 'Cannot delete this income; it would result in a negative balance.' });
+            }
+        }
+
+        await connection.execute(
+            'UPDATE financial_account SET current_balance = current_balance - ? WHERE account_id = ?',
+            [signedAmount, tx.account_id]
+        );
+
+        // 3. Delete Transaction
+        await connection.execute('DELETE FROM transaction WHERE transaction_id = ?', [id]);
+
+        await connection.commit();
+        res.json({ message: 'Transaction deleted successfully' });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Delete Error:', error);
+        res.status(500).json({ message: 'Failed to delete transaction' });
+    } finally {
+        connection.release();
     }
 };
 
@@ -139,13 +287,13 @@ exports.approveTransaction = async (req, res) => {
         }
         
         // Send notification to Junior Treasurer (who recorded the transaction)
-        if (transaction && transaction.recorded_by) {
+        if (transaction && transaction.recorded_by_id) {
             try {
                 await notificationHelper.notifyTransactionVerified(
                     transaction.event_id, 
                     transaction.event_name || 'Unknown Event', 
                     approverId,
-                    transaction.recorded_by
+                    transaction.recorded_by_id
                 );
             } catch (notifyErr) {
                 console.error('[approveTransaction] Notification error:', notifyErr);

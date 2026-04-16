@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, FileText, Plus, Trash2, Home, CheckCircle, Search, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotify } from '../../context/NotificationContext';
 import UserDropdown from '../../components/UserDropdown';
 
 const CreateEvent = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const notify = useNotify();
     const [loading, setLoading] = useState(false);
 
     // Form State
@@ -16,9 +18,8 @@ const CreateEvent = () => {
     const [endDate, setEndDate] = useState('');
     const [venue, setVenue] = useState('');
     
-    // UI Messages
-    const [successMsg, setSuccessMsg] = useState('');
-    const [errorMsg, setErrorMsg] = useState('');
+    // UI Messages removed in favor of global notifications
+    
     
     // Organizers state includes search functionality per row
     const [organizers, setOrganizers] = useState([
@@ -94,7 +95,7 @@ const CreateEvent = () => {
         const validOrganizers = organizers.filter(org => org.user_id && org.designation);
         
         if (validOrganizers.length === 0) {
-            alert("Please assign at least one valid Organizing Committee Member.");
+            notify("Please assign at least one valid Organizing Committee Member.", "error");
             return;
         }
 
@@ -126,24 +127,21 @@ const CreateEvent = () => {
             });
 
             if (res.ok) {
-                setSuccessMsg("Event Created Successfully! Redirecting...");
-                setErrorMsg('');
+                notify("Event Created Successfully! Redirecting...", "success");
                 setTimeout(() => {
                     if (user?.role_name === 'President') {
                         navigate('/exec/president-dashboard');
                     } else {
                         navigate('/exec/dashboard');
                     }
-                }, 2000);
+                }, 1500);
             } else {
                 const data = await res.json();
-                setErrorMsg(`Error: ${data.message}`);
-                setSuccessMsg('');
+                notify(`Error: ${data.message}`, "error");
             }
         } catch (err) {
             console.error("Submit error:", err);
-            setErrorMsg("Failed to create event due to a network error.");
-            setSuccessMsg('');
+            notify("Failed to create event due to a network error.", "error");
         } finally {
             setLoading(false);
         }
@@ -171,18 +169,8 @@ const CreateEvent = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
                     <h2 className="text-xl font-bold text-gray-900 mb-8">Create New Event</h2>
 
-                    {/* Status Messages */}
-                    {successMsg && (
-                        <div className="mb-6 p-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg flex items-center gap-3">
-                            <CheckCircle size={20} />
-                            <span className="text-sm font-semibold">{successMsg}</span>
-                        </div>
-                    )}
-                    {errorMsg && (
-                        <div className="mb-6 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-semibold">
-                            {errorMsg}
-                        </div>
-                    )}
+                    {/* Status Messages removed in favor of global notifications */}
+
 
                     <form onSubmit={handleSubmit} className="space-y-8">
 

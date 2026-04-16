@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Plus, Trash2, Search, User, UserPlus, Bell, Home } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotify } from '../../context/NotificationContext';
 import UserDropdown from '../../components/UserDropdown';
 
 const NominateTerm = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const notify = useNotify();
     const [loading, setLoading] = useState(false);
 
     // Initial board with mandatory roles
@@ -38,7 +40,7 @@ const NominateTerm = () => {
         // Validation: Ensure all assigned roles have IDs
         const incomplete = board.some(n => n.roleName && (!n.name || !n.studentId));
         if (incomplete) {
-            alert("Please complete all assignments with Name and Student ID before ending the term.");
+            notify("Please complete all assignments with Name and Student ID before ending the term.", "error");
             return;
         }
 
@@ -59,15 +61,15 @@ const NominateTerm = () => {
                 });
 
                 if (res.ok) {
-                    alert("Term Handover Successful! The system has transitioned to the new term.");
+                    notify("Term Handover Successful! The system has transitioned to the new term.", "success");
                     navigate('/login');
                 } else {
                     const data = await res.json();
-                    alert("Failed to end term: " + data.message);
+                    notify("Failed to end term: " + data.message, "error");
                 }
             } catch (err) {
                 console.error("Rollover error", err);
-                alert("Server Error during Term Rollover.");
+                notify("Server Error during Term Rollover.", "error");
             } finally {
                 setLoading(false);
             }
