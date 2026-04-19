@@ -28,21 +28,25 @@ import RecommendationLetterDraft from './pages/academic-staff/RecommendationLett
 
 // --- THE "FIXED FRAME" LAYOUT ---
 const Layout = ({ children }) => (
-  <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
+  <div className="flex h-screen bg-gray-50 font-sans overflow-hidden print:h-auto print:overflow-visible print:bg-white">
     {/* 1. FIXED SIDEBAR (Left) */}
-    <Sidebar />
+    <div className="print:hidden">
+      <Sidebar />
+    </div>
 
     {/* 2. RIGHT AREA (Header + Content + Footer) */}
-    <div className="flex-1 flex flex-col h-screen min-w-0">
+    <div className="flex-1 flex flex-col h-screen min-w-0 print:h-auto print:overflow-visible">
       {/* A. FIXED HEADER */}
-      <Header />
+      <div className="print:hidden">
+        <Header />
+      </div>
 
       {/* B. CONTENT AREA (This is the part that scrolls vertically) */}
-      <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth">
+      <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth print:overflow-visible print:h-auto">
         {children}
         
         {/* C. FOOTER (Inside scroll area so it appears at bottom of content) */}
-        <footer className="py-6 border-t border-gray-100 flex items-center justify-center bg-white/50">
+        <footer className="py-6 border-t border-gray-100 flex items-center justify-center bg-white/50 print:hidden">
           <p className="text-[10px] text-gray-400 font-medium">
             © {new Date().getFullYear()} Industrial Management Science Students' Association (IMSSA). All rights reserved.
           </p>

@@ -289,8 +289,8 @@ const JuniorTreasurerDashboard = () => {
     if (!user) return <div className="p-8">Redirecting...</div>;
 
     return (
-        <div className="pb-10 bg-gray-50 min-h-screen font-sans relative px-8 mt-10">
-            <div className="max-w-7xl mx-auto">
+        <div className="pb-10 bg-gray-50 min-h-screen font-sans relative px-8 mt-10 print:p-0 print:m-0 print:bg-white print:min-h-0">
+            <div className={`max-w-7xl mx-auto ${showReportModal ? 'print:hidden' : ''}`}>
 
                 {/* BACK ARROW + GREETING (inline) & ACTION BUTTONS */}
                 <div className="flex justify-between items-center mb-10">

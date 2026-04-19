@@ -192,8 +192,8 @@ const SeniorTreasurerDashboard = () => {
     }, []);
 
     return (
-        <div className="pb-10 relative bg-gray-50 min-h-screen font-sans px-8">
-            <div className="max-w-7xl mx-auto">
+        <div className="pb-10 relative bg-gray-50 min-h-screen font-sans px-8 print:p-0 print:m-0 print:bg-white print:min-h-0">
+            <div className={`max-w-7xl mx-auto ${showReportModal ? 'print:hidden' : ''}`}>
                 {/* TITLE with Back Button & Actions */}
                 <div className="flex items-center justify-between mb-10">
                     <div className="flex items-center gap-4">

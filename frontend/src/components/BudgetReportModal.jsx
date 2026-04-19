@@ -4,6 +4,7 @@ import {
     DollarSign, Printer, FileText, ChevronDown, Calendar, Search, 
     Plus
 } from 'lucide-react';
+import { formatDate } from '../utils/dateUtils';
 
 const BudgetReportModal = ({ isOpen, onClose, events = [] }) => {
     const [loading, setLoading] = useState(false);
@@ -47,15 +48,15 @@ const BudgetReportModal = ({ isOpen, onClose, events = [] }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 print:static print:p-0 print:block">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-gray-600/30 backdrop-blur-sm" onClick={onClose}></div>
+            <div className="absolute inset-0 bg-gray-600/30 backdrop-blur-sm print:hidden" onClick={onClose}></div>
             
             {/* Modal Container */}
-            <div className="relative bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="relative bg-white w-full max-w-5xl max-h-[90vh] print:max-h-none rounded-2xl shadow-xl overflow-hidden print:overflow-visible print:shadow-none print:w-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300">
                 
                 {/* Header */}
-                <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10 print:hidden">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-teal-50">
                             <FileText size={20} />
@@ -79,7 +80,7 @@ const BudgetReportModal = ({ isOpen, onClose, events = [] }) => {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-8 bg-gray-50/20">
+                <div className="flex-1 overflow-y-auto print:overflow-visible p-8 print:p-0 bg-gray-50/20 print:bg-white">
                     
                     {/* Filters Section */}
                     <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm mb-10 flex flex-wrap items-end gap-6 print:hidden">
@@ -132,103 +133,146 @@ const BudgetReportModal = ({ isOpen, onClose, events = [] }) => {
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Aggregating Records...</p>
                         </div>
                     ) : reportData ? (
-                        <div className="print:m-0">
+                        <div className="print:m-0 print:text-black w-full" id="budget-report-print-target">
                             
                             {/* PRINT HEADER */}
-                            <div className="hidden print:block mb-10 text-center border-b border-gray-200 pb-10">
-                                <h1 className="text-3xl font-black text-teal-800 tracking-tighter">FINANCIAL AUDIT STATEMENT</h1>
-                                <p className="text-[10px] text-gray-400 mt-2 font-black tracking-[0.2em] uppercase">
-                                    {filters.event_id === 'all' ? 'All Association Domain' : 'Event Limited Discovery'}
-                                </p>
-                                <p className="text-[10px] text-gray-400 mt-6 font-bold uppercase tracking-widest italic">
-                                    Compiled on {new Date().toLocaleDateString()} • University of Kelaniya
-                                </p>
+                            <div className="hidden print:block mb-10 pb-6 border-b-2 border-gray-100">
+                                <div className="text-center mb-6">
+                                    <p className="text-[10px] text-gray-600 font-bold mb-1">IMSSA Management System</p>
+                                    <h1 className="text-4xl font-black text-teal-800 tracking-tighter uppercase">BUDGET REPORT</h1>
+                                    <p className="text-[11px] font-black tracking-[0.1em] text-gray-800 mt-2 uppercase">
+                                        {filters.event_id === 'all' 
+                                            ? 'CONSOLIDATED ASSOCIATION DOMAIN' 
+                                            : ((events.find(e => String(e.event_id) === String(filters.event_id))?.event_name || events.find(e => String(e.event_id) === String(filters.event_id))?.title) || 'EVENT DOMAIN IN FOCUS')}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-gray-600 uppercase mt-1">
+                                        {filters.start_date && filters.end_date ? `PERIOD: ${formatDate(filters.start_date)} TO ${formatDate(filters.end_date)}` : 'FULL ACADEMIC TERM (CUMULATIVE)'}
+                                    </p>
+                                </div>
+                                
+                                <div className="flex justify-between items-end mt-8">
+                                    <div>
+                                        <p className="text-[9px] font-bold text-gray-500 uppercase leading-none mb-1">COMPILER</p>
+                                        <p className="text-[10px] font-black uppercase text-black">
+                                            {window.location.pathname.includes('senior-treasurer') ? 'SENIOR TREASURER' : 'JUNIOR TREASURER'} • IMSSA
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase italic">
+                                            GENERATED ON {formatDate(new Date())} • UNIVERSITY OF KELANIYA
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Metrics Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm border-b-4 border-b-teal-500">
-                                    <p className="text-[10px] uppercase font-black tracking-widest text-gray-400 mb-1">Total Verified Income</p>
-                                    <h3 className="text-3xl font-black text-teal-600 truncate">Rs. {reportData.metrics.totalIncome.toLocaleString()}</h3>
+                            <div className="grid grid-cols-1 gap-4 mb-10 print:mb-8 print:grid-cols-1">
+                                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm print:rounded-2xl print:border-gray-300 print:shadow-none">
+                                    <p className="text-[11px] uppercase font-black tracking-widest text-gray-500 mb-2">Total Verified Income</p>
+                                    <h3 className="text-3xl font-black text-black">Rs. {reportData.metrics.totalIncome.toLocaleString(undefined, {minimumFractionDigits: 0})}</h3>
                                 </div>
-                                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm border-b-4 border-b-gray-400">
-                                    <p className="text-[10px] uppercase font-black tracking-widest text-gray-400 mb-1">Total Verified Expense</p>
-                                    <h3 className="text-3xl font-black text-gray-600 truncate">Rs. {reportData.metrics.totalExpense.toLocaleString()}</h3>
+                                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm print:rounded-2xl print:border-gray-300 print:shadow-none">
+                                    <p className="text-[11px] uppercase font-black tracking-widest text-gray-500 mb-2">Total Verified Expense</p>
+                                    <h3 className="text-3xl font-black text-black">Rs. {reportData.metrics.totalExpense.toLocaleString(undefined, {minimumFractionDigits: 0})}</h3>
                                 </div>
-                                <div className="bg-teal-50 p-6 rounded-2xl border border-teal-100 shadow-inner">
-                                    <p className="text-[10px] uppercase font-black tracking-widest text-teal-600/60 mb-1">Audit Net Balance</p>
-                                    <h3 className="text-3xl font-black text-teal-800 truncate">
-                                        Rs. {reportData.metrics.netBalance.toLocaleString()}
+                                <div className="bg-teal-50 p-6 rounded-xl border border-teal-100 print:rounded-2xl print:border-2 print:border-black print:bg-white print:shadow-none">
+                                    <p className="text-[11px] uppercase font-black tracking-widest text-teal-500 mb-2 print:text-teal-400">Audit Net Balance</p>
+                                    <h3 className="text-3xl font-black text-black">
+                                        Rs. {reportData.metrics.netBalance.toLocaleString(undefined, {minimumFractionDigits: 0})}
                                     </h3>
                                 </div>
                             </div>
 
                             {/* Journal Table */}
-                            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-12">
-                                <div className="px-8 py-4 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
-                                    <div className="flex items-center gap-2 text-gray-500 font-black text-[10px] uppercase tracking-widest">
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-8 print:rounded-2xl print:border-gray-100 print:shadow-none">
+                                <div className="px-8 py-5 flex justify-between items-center print:border-b-0">
+                                    <div className="text-black font-black text-[12px] uppercase tracking-widest">
                                         Verified Transaction Journal
                                     </div>
-                                    <span className="text-[9px] font-black text-teal-600 bg-white px-3 py-1 rounded-full border border-teal-100">
+                                    <span className="text-[9px] font-black text-teal-600 border border-teal-100 px-3 py-1 rounded-full">
                                         {reportData.transactions.length} Records Audited
                                     </span>
                                 </div>
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto print:overflow-visible">
                                     <table className="w-full text-left border-collapse">
                                         <thead>
-                                            <tr className="bg-white border-b border-gray-50">
-                                                <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                                                <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Nature</th>
-                                                <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Account</th>
-                                                <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Amount (LKR)</th>
+                                            <tr className="border-b-2 border-black print:border-black">
+                                                <th className="px-8 py-4 text-[11px] font-black text-black uppercase tracking-widest">Date</th>
+                                                <th className="px-8 py-4 text-[11px] font-black text-black uppercase tracking-widest">Nature</th>
+                                                <th className="px-8 py-4 text-[11px] font-black text-black uppercase tracking-widest">Account</th>
+                                                <th className="px-8 py-4 text-[11px] font-black text-black uppercase tracking-widest text-right">Amount (LKR)</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-50">
+                                        <tbody className="divide-y divide-gray-100 print:divide-white">
                                             {reportData.transactions.map((tx) => (
-                                                <tr key={tx.transaction_id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-8 py-4 text-[11px] font-bold text-gray-400 whitespace-nowrap">{new Date(tx.transaction_date).toLocaleDateString()}</td>
-                                                    <td className="px-8 py-4">
+                                                <tr key={tx.transaction_id} className="print:hover:bg-transparent">
+                                                    <td className="px-8 py-5 text-[12px] font-black text-black whitespace-nowrap align-top">{formatDate(tx.transaction_date)}</td>
+                                                    <td className="px-8 py-5 align-top">
                                                         <div className="flex flex-col">
-                                                            <span className="text-[11px] font-black text-gray-700">{tx.description}</span>
-                                                            <span className="text-[9px] font-bold text-teal-600 uppercase mt-0.5">{tx.event_name || 'General Association'}</span>
+                                                            <span className="text-[12px] font-black text-black">{tx.description}</span>
+                                                            {filters.event_id === 'all' && (
+                                                                <span className="text-[10px] font-bold text-gray-500 uppercase mt-1">{tx.event_name || 'General Association'}</span>
+                                                            )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-8 py-4 text-[11px] font-bold text-gray-400">{tx.account_name}</td>
-                                                    <td className={`px-8 py-4 text-xs font-black text-right ${tx.transaction_type === 'Income' ? 'text-teal-600' : 'text-gray-600'}`}>
+                                                    <td className="px-8 py-5 text-[12px] font-black text-black align-top">{tx.account_name}</td>
+                                                    <td className="px-8 py-5 text-[12px] font-black text-black text-right align-top">
                                                         {tx.transaction_type === 'Income' ? '+' : '-'} {parseFloat(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
                                                     </td>
                                                 </tr>
                                             ))}
                                             {reportData.transactions.length === 0 && (
                                                 <tr>
-                                                    <td colSpan="4" className="px-8 py-20 text-center text-[10px] font-bold text-gray-300 uppercase tracking-widest">No verified data found</td>
+                                                    <td colSpan="4" className="px-8 py-10 text-center text-[10px] font-bold text-gray-300 uppercase tracking-widest">No verified data found</td>
                                                 </tr>
                                             )}
                                         </tbody>
-                                        <tfoot className="bg-teal-800 text-white print:bg-gray-100 print:text-gray-800">
-                                            <tr>
-                                                <td colSpan="3" className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em]">Statement Summary Total</td>
-                                                <td className="px-8 py-5 text-xl font-black text-right border-l border-teal-700 print:border-gray-300">
-                                                    {reportData.metrics.netBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
                                     </table>
+                                </div>
+                                <div className="border-t-[8px] border-black print:border-black bg-white flex justify-between items-center px-8 py-6">
+                                    <div className="text-[12px] font-black text-black uppercase tracking-[0.2em]">Total Verified Statement Balance</div>
+                                    <div className="text-3xl font-black text-black">
+                                       Rs. {reportData.metrics.netBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* PENDING APPROVALS NOTE (Auditor Statement Note) */}
+                            <div className="flex mb-12 px-6 py-5 bg-white rounded-2xl border border-gray-200 items-start gap-4 shadow-sm">
+                                <Search size={24} className="text-black shrink-0 mt-1" />
+                                <div>
+                                    <p className="text-[12px] font-black text-black uppercase tracking-widest mb-2">Auditor Statement Note</p>
+                                    <p className="text-[12px] text-gray-600 font-bold leading-relaxed">
+                                        This report currently reflects only **Verified** transactions. 
+                                        {reportData.metrics.pendingCount > 0 ? (
+                                            <> There are currently <span className="text-black font-black">{reportData.metrics.pendingCount} transactions</span> (Totaling Rs. {(reportData.metrics.pendingIncome + reportData.metrics.pendingExpense).toLocaleString()}) awaiting approval from the Senior Treasurer which are excluded from these totals.</>
+                                        ) : (
+                                            " All recorded transactions for this period have been successfully verified."
+                                        )}
+                                    </p>
                                 </div>
                             </div>
 
                             {/* SIGNATURE SECTION */}
-                            <div className="hidden print:flex justify-between mt-32 px-12 pb-10">
-                                <div className="text-center">
-                                    <div className="w-48 border-b border-gray-400 mb-2"></div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-700">Junior Treasurer</p>
+                            <div className="flex justify-between mt-16 px-16 pb-10">
+                                <div className="text-center w-64">
+                                    <div className="w-full border-b-[3px] border-black mb-4"></div>
+                                    <p className="text-[12px] font-black text-black uppercase tracking-widest">JUNIOR TREASURER</p>
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase mt-2 text-left">NAME: __________________________</p>
                                 </div>
-                                <div className="text-center">
-                                    <div className="w-48 border-b border-gray-400 mb-2"></div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-700">Senior Treasurer</p>
+                                <div className="text-center w-64">
+                                    <div className="w-full border-b-[3px] border-black mb-4"></div>
+                                    <p className="text-[12px] font-black text-black uppercase tracking-widest">SENIOR TREASURER</p>
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase mt-2 text-left">NAME: __________________________</p>
                                 </div>
                             </div>
 
+                            {/* Global Custom Footer for print */}
+                            <div className="text-center mt-12 pb-8">
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                    Industrial Management Science Students' Association
+                                </p>
+                            </div>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-24 bg-white rounded-2xl border-2 border-dashed border-gray-100">

@@ -9,3 +9,9 @@ body {
     /* Dark Gray Text (Gray-900) */
     font-family: 'Inter', sans-serif;
 }
+@media print {
+  @page {
+    margin: 0.5cm;
+  }
+}
+
