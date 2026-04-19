@@ -139,6 +139,10 @@ const JuniorTreasurerDashboard = () => {
         if (user) {
             fetchDashboardData();
         }
+        
+        // Listen for task approval from TaskDetails page and refresh
+        window.addEventListener('taskApproved', fetchDashboardData);
+        return () => window.removeEventListener('taskApproved', fetchDashboardData);
     }, [user, filters.account_id, filters.event_id]);
 
     // Report Modal State
@@ -292,7 +296,6 @@ const JuniorTreasurerDashboard = () => {
         <div className="pb-10 bg-gray-50 min-h-screen font-sans relative px-8 mt-10 print:p-0 print:m-0 print:bg-white print:min-h-0">
             <div className={`max-w-7xl mx-auto ${showReportModal ? 'print:hidden' : ''}`}>
 
-                {/* BACK ARROW + GREETING (inline) & ACTION BUTTONS */}
                 <div className="flex justify-between items-center mb-10">
                     <div className="flex items-center gap-4">
                         <ArrowRight
@@ -607,7 +610,7 @@ const JuniorTreasurerDashboard = () => {
                                 <button 
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/exec/tasks/${task.id}/${task.assignment_id}`);
+                                        navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`);
                                     }}
                                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition-colors"
                                 >

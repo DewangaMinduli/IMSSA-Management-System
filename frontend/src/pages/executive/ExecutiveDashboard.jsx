@@ -52,6 +52,10 @@ const ExecutiveDashboard = () => {
             }
         };
         fetchData();
+
+        // Listen for task approval from TaskDetails page and refresh
+        window.addEventListener('taskApproved', fetchData);
+        return () => window.removeEventListener('taskApproved', fetchData);
     }, [user]);
 
     const handleApplyVolunteer = async (task) => {
@@ -95,7 +99,6 @@ const ExecutiveDashboard = () => {
         <div className="pb-10 bg-gray-50 min-h-screen font-sans px-8 mt-10">
             <div className="max-w-7xl mx-auto">
 
-                {/* BACK ARROW & GREETING (inline) + ACTION BUTTONS */}
                 <div className="flex justify-between items-center mb-10">
                     <div className="flex items-center gap-4">
                         <ArrowRight
@@ -145,7 +148,7 @@ const ExecutiveDashboard = () => {
                     ) : tasksToApprove.map(task => (
                         <div 
                             key={task.assignment_id} 
-                            onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}`)}
+                            onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`)}
                             className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-all group"
                         >
                             <div>
@@ -163,7 +166,7 @@ const ExecutiveDashboard = () => {
                                 <button 
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/exec/tasks/${task.id}/${task.assignment_id}`);
+                                        navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`);
                                     }}
                                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition"
                                 >
@@ -180,7 +183,7 @@ const ExecutiveDashboard = () => {
                             No tasks assigned.
                         </div>
                     ) : myTasks.map(task => (
-                        <div key={task.id} onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start group">
+                        <div key={task.id} onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start group">
                             <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-grow">{task.desc}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {task.due}</div>

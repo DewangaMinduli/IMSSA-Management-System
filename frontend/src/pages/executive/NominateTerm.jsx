@@ -161,26 +161,6 @@ const NominateTerm = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20">
-            {/* MATCH HOME PAGE HEADER (President style) */}
-            <div className="bg-white border-b border-gray-200 sticky top-0 z-40 px-6 py-3 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-700 font-bold text-xs">IM</div>
-                    <div>
-                        <h1 className="text-sm font-bold text-gray-900 leading-tight">Industrial Management Science Students' Association</h1>
-                        <p className="text-[10px] text-gray-500">University of Kelaniya</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="relative">
-                        <Bell size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer" />
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
-                    </div>
-                    <Home size={20} className="text-gray-500 hover:text-teal-600 cursor-pointer transition-colors" onClick={() => navigateBack()} />
-                    <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">{user?.role_name || 'Executive'}</div>
-                    <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
-                </div>
-            </div>
-
             <div className="max-w-6xl mx-auto px-6 mt-10">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 md:p-12">
                     

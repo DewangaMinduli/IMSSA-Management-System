@@ -165,7 +165,20 @@ const MemberDashboard = () => {
                             <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2 flex-grow">{task.desc}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {task.due}</div>
-                            <span className="px-2 py-1 rounded text-[10px] font-bold bg-teal-100 text-teal-800">Event: {task.event}</span>
+                            <div className="flex justify-between items-center">
+                                <span className="px-2 py-1 rounded text-[10px] font-bold bg-teal-50 text-teal-600 border border-teal-100">Event: {task.event}</span>
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${
+                                    task.status === 'Verified' ? 'bg-green-100 text-green-700' :
+                                    task.status === 'Rejected' ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse' :
+                                    task.status === 'Submitted' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-gray-100 text-gray-700'
+                                }`}>
+                                    {task.status === 'Verified' ? 'Completed' : 
+                                     task.status === 'Rejected' ? 'Needs Revision' : 
+                                     task.status === 'Submitted' ? 'Review Pending' : 
+                                     task.status}
+                                </span>
+                            </div>
                         </div>
                     ))}
                 </ScrollSection>

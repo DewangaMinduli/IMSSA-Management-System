@@ -96,7 +96,7 @@ const Header = () => {
         if (user.role_name === 'Academic_Staff' || user.role_name === 'Academic Staff') {
             return <div className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700">Academic Staff</div>;
         }
-        if (user.role_name === 'Organizing_Committee') {
+        if (user.role_name === 'Organizing_Committee' || user.role_name === 'OC') {
             return <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Organizing Committee</div>;
         }
         if (user.role_name === 'President' || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer' || user.hierarchy_level >= 4) {
@@ -106,13 +106,13 @@ const Header = () => {
     };
 
     const getColorClass = () => {
-        if (user?.role_name === 'Organizing_Committee') return "bg-teal-50 text-teal-700";
+        if (user?.role_name === 'Organizing_Committee' || user?.role_name === 'OC') return "bg-teal-50 text-teal-700";
         if (user?.hierarchy_level >= 4) return "bg-blue-50 text-blue-700";
         return "bg-slate-100 text-slate-700";
     };
 
     return (
-        <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 px-8 py-3 flex justify-between items-center bg-white">
+        <header className="bg-white border-b border-gray-100 sticky top-0 z-40 px-8 py-3 flex justify-between items-center">
             <div className="flex-1"></div>
             <div className="flex items-center gap-4 relative">
                 <div className="relative" id="notification-container">

@@ -95,6 +95,10 @@ const OrganizingCommitteeDashboard = () => {
             }
         };
         fetchData();
+
+        // Listen for task approval from TaskDetails page and refresh
+        window.addEventListener('taskApproved', fetchData);
+        return () => window.removeEventListener('taskApproved', fetchData);
     }, [user]);
 
     const otherEvents = allEvents.filter(e => !events.find(me => me.event_id === e.event_id));
@@ -148,7 +152,6 @@ const OrganizingCommitteeDashboard = () => {
     return (
         <div className="pb-10 bg-gray-50 min-h-screen font-sans px-8 mt-10">
             <div className="max-w-7xl mx-auto">
-                {/* PAGE TITLE & ACTION */}
                 <div className="flex justify-between items-center mb-10">
                     <div className="flex items-center gap-4">
                         <ArrowRight
@@ -249,18 +252,20 @@ const OrganizingCommitteeDashboard = () => {
                                         </span>
                                     </div>
                                     <p className="text-xs text-gray-500 mb-4 line-clamp-2">{task.desc}</p>
-                                    <div className="text-xs text-gray-500 mb-2"><strong>Event:</strong> {task.event}</div>
-                                    <div className="text-xs text-gray-500 mb-4"><strong>By:</strong> {task.assigned_to}</div>
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        <div className="text-xs text-gray-500"><strong>Event:</strong> {task.event}</div>
+                                        <div className="text-xs text-gray-500"><strong>By:</strong> {task.assigned_to}</div>
+                                    </div>
                                 </div>
                                 <div className="flex justify-end pt-3 border-t border-gray-50">
                                     <button 
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            navigate(`/member/tasks/${task.id}/${task.assignment_id}`);
+                                            navigate(`/member/tasks/${task.id}/${task.assignment_id}?mode=review`);
                                         }}
-                                        className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-xs font-bold hover:bg-blue-700 transition"
+                                        className="bg-slate-700 text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-slate-800 transition shadow-sm"
                                     >
-                                        Review
+                                        Assess Submission
                                     </button>
                                 </div>
                             </div>
@@ -280,9 +285,18 @@ const OrganizingCommitteeDashboard = () => {
                                 <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
                                 <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2 flex-grow">{task.desc}</p>
                                 <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {task.due}</div>
-                                <div className="flex justify-between items-center">
-                                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-teal-100 text-teal-800">Event: {task.event}</span>
-                                    <span className="text-[10px] text-gray-400 font-semibold">{task.status}</span>
+                                <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold text-teal-700">Event: {task.event}</span>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                        task.status === 'Verified' ? 'bg-teal-100 text-teal-800' :
+                                        task.status === 'Rejected' ? 'bg-rose-100 text-rose-800 animate-pulse' :
+                                        task.status === 'Submitted' ? 'bg-blue-50 text-blue-700' :
+                                        'bg-gray-100 text-gray-700'
+                                    }`}>
+                                        {task.status === 'Verified' ? 'Completed' : 
+                                         task.status === 'Rejected' ? 'Needs Revision' : 
+                                         task.status}
+                                    </span>
                                 </div>
                             </div>
                         ))

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import FileUploadForm from '../../components/FileUploadForm';
 import CommentsThread from '../../components/CommentsThread';
@@ -11,10 +11,13 @@ import {
 const TaskDetails = () => {
     const navigate = useNavigate();
     const { taskId, assignmentId } = useParams();
+    const location = useLocation();
     const { user } = useAuth();
+    
+    // Detect if we are in "Review/Approval" mode
+    const isReviewMode = new URLSearchParams(location.search).get('mode') === 'review';
 
     const [assignment, setAssignment] = useState(null);
-    const [comments, setComments] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [approvalAction, setApprovalAction] = useState(null);
@@ -23,39 +26,19 @@ const TaskDetails = () => {
     const [isSavingNotes, setIsSavingNotes] = useState(false);
 
     useEffect(() => {
-        console.log('[TaskDetails] taskId:', taskId, 'assignmentId:', assignmentId, 'userId:', user?.id, 'user:', user);
-        if (!taskId || !assignmentId || !user?.id) {
-            console.error('[TaskDetails] Missing required params - taskId:', taskId, 'assignmentId:', assignmentId, 'userId:', user?.id);
-            return;
-        }
+        if (!taskId || !assignmentId || !user?.id) return;
         fetchTaskDetails();
     }, [taskId, assignmentId, user]);
 
     const fetchTaskDetails = async () => {
         try {
             setIsLoading(true);
-            console.log('[TaskDetails] Fetching from:', `http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}`);
-            const [assignmentRes, commentsRes] = await Promise.all([
-                fetch(`http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}`),
-                fetch(`http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/comments`)
-            ]);
-
-            if (!assignmentRes.ok) {
-                const errorText = await assignmentRes.text();
-                console.error('[TaskDetails] API error:', assignmentRes.status, errorText);
-                throw new Error(`Assignment not found: ${errorText}`);
-            }
-
+            const assignmentRes = await fetch(`http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}`);
+            if (!assignmentRes.ok) throw new Error(`Assignment not found`);
             const assignmentData = await assignmentRes.json();
             setAssignment(assignmentData);
             setLocalNotes(assignmentData.submission_text || '');
-
-            if (commentsRes.ok) {
-                const commentsData = await commentsRes.json();
-                setComments(commentsData || []);
-            }
         } catch (err) {
-            console.error('Error fetching task details:', err);
             setError('Failed to load task details');
         } finally {
             setIsLoading(false);
@@ -74,42 +57,37 @@ const TaskDetails = () => {
                 `http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/status`,
                 {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
                     body: JSON.stringify({ status: newStatus })
                 }
             );
 
-            if (!response.ok) throw new Error('Failed to update status');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update status');
+            }
 
-            // Refresh data
-            fetchTaskDetails();
-            
-            // Emit event to refresh EventDetails page
+            // Emit event to refresh other pages
             window.dispatchEvent(new CustomEvent('taskApproved', { 
                 detail: { taskId, assignmentId, status: newStatus } 
             }));
+
+            // Alert success then navigate back
+            const msg = newStatus === 'Approved' 
+                ? 'Task successfully approved!' 
+                : 'Task sent back for revisions.';
+            
+            alert(msg);
+            navigate(-1); // Go back to dashboard/task list
+            
         } catch (err) {
             console.error('Error updating status:', err);
-            setError('Failed to update status');
+            setError(err.message || 'Failed to update status');
         } finally {
             setApprovalAction(null);
-        }
-    };
-
-    const handleCommentAdded = async () => {
-        // Refresh comments after new comment is added
-        console.log('[TaskDetails] Refreshing comments after new comment...');
-        try {
-            const res = await fetch(`http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/comments`);
-            if (res.ok) {
-                const data = await res.json();
-                console.log('[TaskDetails] Comments refreshed:', data);
-                setComments(data || []);
-            } else {
-                console.error('[TaskDetails] Failed to refresh comments:', res.status);
-            }
-        } catch (err) {
-            console.error('[TaskDetails] Error refreshing comments:', err);
         }
     };
 
@@ -139,21 +117,26 @@ const TaskDetails = () => {
     }
 
     const isAssignee = user?.id === assignment.assigned_user_id;
-    const isOC = ['Organizing_Committee', 'oc', 'OC'].includes(user?.role) || user?.user_type === 'Organizing_Committee';
+    const isOC = ['Organizing_Committee', 'oc', 'OC', 'Organizing Committee'].some(r => 
+        user?.role?.includes(r) || user?.user_type?.includes(r) || user?.role_name?.includes(r)
+    );
     const isExec = [
-        'Executive', 'executive', 'Executive_Board',
-        'Junior_Treasurer', 'Senior_Treasurer',
-        'President', 'Vice_President'
-    ].includes(user?.role) || [
-        'Executive', 'Executive_Board', 'Junior_Treasurer', 'Senior_Treasurer', 'President'
-    ].includes(user?.user_type);
+        'Executive', 'Executive_Board', 'Executive Board',
+        'Junior_Treasurer', 'Junior Treasurer', 'Senior_Treasurer', 'Senior Treasurer',
+        'President', 'Vice_President', 'Vice President'
+    ].some(r => 
+        user?.role?.includes(r) || user?.user_type?.includes(r) || user?.role_name?.includes(r)
+    );
+
     const canApprove = (isOC || isExec) && !isAssignee;
+    
     const statusColors = {
         'Assigned': 'bg-gray-100 text-gray-700',
         'In_Progress': 'bg-blue-100 text-blue-700',
         'Submitted': 'bg-orange-100 text-orange-700',
         'Verified': 'bg-green-100 text-green-700',
-        'Rejected': 'bg-red-100 text-red-700'
+        'Rejected': 'bg-red-100 text-red-700',
+        'Completed': 'bg-orange-100 text-orange-700'
     };
 
     return (
@@ -183,40 +166,105 @@ const TaskDetails = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Task Description */}
+                    
+                    {/* Review Mode Banner / Status Headers */}
+                    {isReviewMode ? (
+                        <div className="bg-slate-800 p-5 rounded-xl text-white shadow-lg flex items-center justify-between border-l-4 border-teal-500">
+                            <div className="flex items-center gap-4">
+                                <div className="p-2 bg-teal-500/20 rounded-lg">
+                                    <CheckCircle size={24} className="text-teal-400" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-base tracking-tight">Assessment Portal</h4>
+                                    <p className="text-xs text-slate-400">Reviewing this submission for IMSSA Activity Compliance.</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : assignment.assignment_status === 'Rejected' ? (
+                        <div className="bg-rose-50 p-5 rounded-xl border border-rose-100 flex items-center gap-4 shadow-sm">
+                            <div className="p-2 bg-rose-100 rounded-lg text-rose-600">
+                                <AlertCircle size={24} />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-rose-900 border-b border-rose-100 pb-1 mb-1">Revisions Requested</h4>
+                                <p className="text-sm text-rose-700 font-medium">Please review the discussion pool for feedback and resubmit your work.</p>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* 1. Submission Details - Premium View for Reviewers / Proof for Assignee */}
+                    {(['submitted', 'completed', 'verified', 'rejected', 'in_progress'].some(s => assignment.assignment_status?.toLowerCase().includes(s))) && (
+                        <div className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                    <FileText className="text-teal-600" size={24} />
+                                    Submission Details
+                                </h3>
+                                {assignment.assignment_status === 'Verified' && (
+                                    <span className="px-4 py-1.5 bg-teal-100 text-teal-800 text-[11px] font-black uppercase tracking-wider rounded-lg border border-teal-200 shadow-sm">Verified ✓</span>
+                                )}
+                                {assignment.assignment_status === 'Rejected' && (
+                                    <span className="px-4 py-1.5 bg-rose-100 text-rose-800 text-[11px] font-black uppercase tracking-wider rounded-lg border border-rose-200 shadow-sm">Revisions Needed</span>
+                                )}
+                            </div>
+
+                            {/* Notes from Member */}
+                            <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Member's Statement / Notes</p>
+                                <p className="text-gray-800 text-lg leading-relaxed font-medium italic whitespace-pre-wrap">
+                                    "{assignment.submission_text || 'No note provided for this submission.'}"
+                                </p>
+                            </div>
+
+                            {/* View Document */}
+                            {assignment.submission_url && (
+                                <div className="pt-2">
+                                    <a
+                                        href={assignment.submission_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-3 px-6 py-4 bg-teal-600 text-white rounded-xl font-bold text-sm hover:bg-teal-700 transition-all shadow-sm"
+                                    >
+                                        <Download size={20} />
+                                        Open & Review Submitted Document
+                                    </a>
+                                </div>
+                            )}
+
+                            {/* Action Buttons for Reviewer */}
+                            {canApprove && (assignment.assignment_status === 'Submitted' || isReviewMode) && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-gray-100">
+                                    <button
+                                        onClick={() => handleStatusUpdate('Approved')}
+                                        disabled={approvalAction !== null}
+                                        className="px-6 py-4 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 hover:shadow-lg transition-all flex items-center justify-center gap-3 text-sm uppercase tracking-wider disabled:bg-gray-400"
+                                    >
+                                        <CheckCircle size={20} />
+                                        {approvalAction === 'Approved' ? 'Processing...' : 'Approve Task'}
+                                    </button>
+                                    <button
+                                        onClick={() => handleStatusUpdate('Rejected')}
+                                        disabled={approvalAction !== null}
+                                        className="px-6 py-4 bg-white text-rose-600 border-2 border-rose-100 font-bold rounded-xl hover:bg-rose-50 hover:border-rose-200 transition-all flex items-center justify-center gap-3 text-sm uppercase tracking-wider disabled:opacity-50"
+                                    >
+                                        <AlertCircle size={20} />
+                                        {approvalAction === 'Rejected' ? 'Processing...' : 'Needs Revisions'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 2. Task Description */}
                     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Task Description</h3>
-                        <p className="text-gray-700 whitespace-pre-wrap">{assignment.desc}</p>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 uppercase tracking-widest text-xs">Task Context & Instructions</h3>
+                        <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">{assignment.desc}</p>
                     </div>
 
-                    {/* Submission Status/Form */}
-                    {isAssignee && (
-                        <>
-                            {assignment.assignment_status === 'Verified' && (
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                                    <div className="flex gap-3">
-                                        <CheckCircle size={24} className="text-green-600 flex-shrink-0" />
-                                        <div>
-                                            <h3 className="font-semibold text-green-900">✓ Task Approved!</h3>
-                                            <p className="text-sm text-green-700 mt-1">Great work! Your submission has been approved. Skills have been added to your profile.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {assignment.assignment_status === 'Rejected' && (
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                                    <div className="flex gap-3">
-                                        <AlertCircle size={24} className="text-red-600 flex-shrink-0" />
-                                        <div>
-                                            <h3 className="font-semibold text-red-900">Changes Requested</h3>
-                                            <p className="text-sm text-red-700 mt-1">Please review the feedback below and resubmit your work.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {['Assigned', 'In_Progress', 'Rejected'].includes(assignment.assignment_status) && assignment.proof_type !== 'None' && (
+                    {/* 3. Assignee Interaction Zone (Upload/Notes) */}
+                    {isAssignee && ['Assigned', 'In_Progress', 'Rejected'].includes(assignment.assignment_status) && (
+                        <div className="space-y-6">
+                            {assignment.proof_type !== 'None' ? (
                                 <FileUploadForm
                                     taskId={taskId}
                                     assignmentId={assignmentId}
@@ -224,188 +272,71 @@ const TaskDetails = () => {
                                     onSubmitSuccess={handleSubmitSuccess}
                                     disabled={isSubmitted}
                                 />
-                            )}
-
-                            {/* Notes panel for tasks with no submission required */}
-                            {isAssignee && assignment.proof_type === 'None' && ['Assigned', 'In_Progress', 'Rejected'].includes(assignment.assignment_status) && (
-                                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Notes & Completion</h3>
-                                    <p className="text-sm text-gray-500 mb-4">Add any notes or updates about this task. Although no file is required, you must mark it as completed.</p>
-                                    <div className="space-y-4">
-                                        <textarea
-                                            value={localNotes}
-                                            onChange={(e) => setLocalNotes(e.target.value)}
-                                            placeholder="Add notes about your work here..."
-                                            rows={4}
-                                            disabled={isSavingNotes}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition disabled:bg-gray-50 disabled:text-gray-500"
-                                        />
-                                        <div className="flex justify-end">
-                                            <button
-                                                onClick={async () => {
-                                                    try {
-                                                        setIsSavingNotes(true);
-                                                        const response = await fetch(
-                                                            `http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/submit-with-link`,
-                                                            {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({
-                                                                    submission_text: localNotes.trim() || 'Task completed without specific notes.',
-                                                                    drive_link: null
-                                                                })
-                                                            }
-                                                        );
-                                                        if (response.ok) {
-                                                            handleSubmitSuccess();
-                                                        } else {
-                                                            const errData = await response.json();
-                                                            setError(errData.message || 'Failed to submit task');
-                                                        }
-                                                    } catch (err) {
-                                                        setError('Failed to submit task');
-                                                    } finally {
-                                                        setIsSavingNotes(false);
+                            ) : (
+                                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Final Completion Note</h3>
+                                    <p className="text-sm text-gray-500 mb-4">Add your final statement about the work and mark as completed.</p>
+                                    <textarea
+                                        value={localNotes}
+                                        onChange={(e) => setLocalNotes(e.target.value)}
+                                        placeholder="Briefly explain what you have achieved..."
+                                        rows={4}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none transition"
+                                    />
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                setIsSavingNotes(true);
+                                                const response = await fetch(
+                                                    `http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/submit-with-link`,
+                                                    {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            submission_text: localNotes.trim() || 'Task completed.',
+                                                            drive_link: null
+                                                        })
                                                     }
-                                                }}
-                                                disabled={isSavingNotes}
-                                                className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
-                                            >
-                                                {isSavingNotes ? <Loader size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-                                                Mark as Completed
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {assignment.assignment_status === 'Submitted' && (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                                    <div className="flex gap-3">
-                                        <Loader size={24} className="text-blue-600 flex-shrink-0 animate-spin" />
-                                        <div>
-                                            <h3 className="font-semibold text-blue-900">Awaiting Review</h3>
-                                            <p className="text-sm text-blue-700 mt-1">Your submission is being reviewed by the task committee.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
-
-                    {/* Submission Details (for reviewers) — visible if submitted OR has content to see */}
-                    {canApprove && (assignment.assignment_status === 'Submitted' || assignment.submission_text || assignment.submission_file_url) && (
-                        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Submission Details</h3>
-                                {['Verified', 'Rejected'].includes(assignment.assignment_status) && (
-                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                                        assignment.assignment_status === 'Verified'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-red-100 text-red-700'
-                                    }`}>
-                                        {assignment.assignment_status === 'Verified' ? '✓ Already Approved' : '✗ Changes Requested'}
-                                    </span>
-                                )}
-                            </div>
-
-                            {assignment.submission_text && (
-                                <div className="mb-4">
-                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Member's Note</p>
-                                    <p className="bg-gray-50 p-4 rounded-lg text-gray-700 whitespace-pre-wrap text-sm border border-gray-100">{assignment.submission_text}</p>
-                                </div>
-                            )}
-
-                            {assignment.submission_file_url && (
-                                <div className="mb-4">
-                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Submitted Document / Link</p>
-                                    <a
-                                        href={assignment.submission_file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-sm bg-blue-50 p-4 rounded-lg border border-blue-200 hover:bg-blue-100 transition"
+                                                );
+                                                if (response.ok) handleSubmitSuccess();
+                                            } catch (err) {} finally { setIsSavingNotes(false); }
+                                        }}
+                                        className="mt-4 w-full bg-teal-600 text-white font-bold py-3 rounded-lg hover:bg-teal-700 transition shadow-sm"
                                     >
-                                        <Download size={16} />
-                                        Open Submitted Document
-                                    </a>
-                                </div>
-                            )}
-
-                            {/* Approval Buttons — only when still pending review */}
-                            {assignment.assignment_status === 'Submitted' && (
-                                <div className="flex gap-3 pt-4 border-t">
-                                    <button
-                                        onClick={() => handleStatusUpdate('Verified')}
-                                        disabled={approvalAction !== null}
-                                        className="flex-1 px-4 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                                    >
-                                        <CheckCircle size={16} />
-                                        {approvalAction === 'Verified' ? 'Approving...' : 'Approve Submission'}
-                                    </button>
-                                    <button
-                                        onClick={() => handleStatusUpdate('Rejected')}
-                                        disabled={approvalAction !== null}
-                                        className="flex-1 px-4 py-3 border-2 border-red-300 text-red-600 font-semibold rounded-lg hover:bg-red-50 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                                    >
-                                        <AlertCircle size={16} />
-                                        {approvalAction === 'Rejected' ? 'Processing...' : 'Request Changes'}
+                                        Mark as Completed
                                     </button>
                                 </div>
                             )}
                         </div>
                     )}
-
-                    {/* Comments Section */}
-                    <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                            <MessageSquare size={20} />
-                            Feedback & Discussion
-                        </h3>
-                        <CommentsThread
-                            taskId={taskId}
-                            assignmentId={assignmentId}
-                            currentUserId={user?.id}
-                            currentUserRole={user?.role}
-                            isAssignee={isAssignee}
-                            comments={comments}
-                            onSubmitComment={handleCommentAdded}
-                            isLoading={false}
-                        />
-                    </div>
                 </div>
 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                    {/* Info Card */}
                     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                        <h3 className="font-semibold text-gray-900 mb-4">Task Info</h3>
-                        <dl className="space-y-3 text-sm">
+                        <h3 className="font-semibold text-gray-900 mb-4 uppercase tracking-widest text-[10px]">Task Blueprint</h3>
+                        <dl className="space-y-4 text-sm">
                             <div>
-                                <dt className="text-gray-500 font-medium">Event</dt>
-                                <dd className="text-gray-900">{assignment.event_name}</dd>
+                                <dt className="text-gray-400 font-bold text-[10px] uppercase">Associated Event</dt>
+                                <dd className="text-gray-900 font-bold mt-1">{assignment.event_name}</dd>
                             </div>
                             <div>
-                                <dt className="text-gray-500 font-medium">Priority</dt>
-                                <dd>
-                                    <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                                <dt className="text-gray-400 font-bold text-[10px] uppercase">Urgency Level</dt>
+                                <dd className="mt-1">
+                                    <span className={`inline-block px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-tighter ${
                                         assignment.priority === 'High' ? 'bg-red-100 text-red-700' :
-                                        assignment.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
-                                        'bg-green-100 text-green-700'
+                                        assignment.priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                                        'bg-emerald-100 text-emerald-700'
                                     }`}>
                                         {assignment.priority}
                                     </span>
                                 </dd>
                             </div>
-                            <div>
-                                <dt className="text-gray-500 font-medium">Submission Type</dt>
-                                <dd>{assignment.proof_type?.replace('_', ' ') || 'N/A'}</dd>
-                            </div>
                         </dl>
                     </div>
 
-                    {/* Assigned To Card */}
                     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                        <h3 className="font-semibold text-gray-900 mb-4">Assigned Member</h3>
+                        <h3 className="font-semibold text-gray-900 mb-4 uppercase tracking-widest text-[10px]">Assigned Member</h3>
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-semibold">
                                 {assignment.assigned_to?.[0] || '?'}
@@ -418,6 +349,28 @@ const TaskDetails = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Task-Wide Pool Discussion (Group Chat) */}
+            {!isReviewMode && (
+                <div className="mt-12 bg-white p-8 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+                                <MessageSquare size={28} className="text-teal-600" />
+                                Task Discussion Pool
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">This context is shared with all volunteers and the executive team.</p>
+                        </div>
+                    </div>
+                    <CommentsThread
+                        taskId={taskId}
+                        assignmentId={assignmentId}
+                        currentUserId={user?.id}
+                        currentUserRole={user?.role_name || user?.role}
+                        isAssignee={isAssignee}
+                    />
+                </div>
+            )}
         </div>
     );
 };

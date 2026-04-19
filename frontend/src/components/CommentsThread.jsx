@@ -13,6 +13,34 @@ const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, 
     ].includes(currentUserRole);
     const canComment = isOC || isExec || isAssignee;
 
+    const [allComments, setAllComments] = useState(comments || []);
+    const [loading, setLoading] = useState(isLoading);
+
+    const fetchComments = async () => {
+        try {
+            setLoading(true);
+            // Use taskId to pool all comments for this task (Group Chat)
+            const url = taskId 
+                ? `http://localhost:5000/api/events/tasks/${taskId}/assignments/${assignmentId}/comments?taskId=${taskId}`
+                : `http://localhost:5000/api/events/tasks/0/assignments/${assignmentId}/comments`;
+            
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                setAllComments(data || []);
+            }
+        } catch (err) {
+            console.error('[CommentsThread] Fetch error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Auto-fetch on mount or ID change
+    React.useEffect(() => {
+        fetchComments();
+    }, [taskId, assignmentId]);
+
     const handleSubmitComment = async (e) => {
         e.preventDefault();
         if (!newComment.trim() || isSubmitting) return;
@@ -37,26 +65,16 @@ const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, 
             );
 
             if (response.ok) {
-                const result = await response.json();
-                console.log('[CommentsThread] Comment posted successfully:', result);
-                
-                // Notify parent to refresh comments
+                // Refresh the group pool chat
+                fetchComments();
                 if (onSubmitComment) {
                     onSubmitComment();
                 }
             } else {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('[CommentsThread] Failed to post comment:', errorData);
-                // Restore the comment text so user can try again
                 setNewComment(commentText);
-                const errorMsg = errorData.error || errorData.sqlMessage || errorData.message || 'Unknown error';
-                alert(`Failed to post comment: ${errorMsg}`);
             }
         } catch (err) {
-            console.error('[CommentsThread] Error submitting comment:', err);
-            // Restore the comment text so user can try again
             setNewComment(commentText);
-            alert('Network error. Please check your connection and try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -79,20 +97,20 @@ const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, 
 
     return (
         <div className="space-y-6">
-            {/* Comments List */}
             <div className="space-y-4">
-                {isLoading ? (
+                {/* Comments List */}
+                {loading ? (
                     <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
                     </div>
-                ) : comments.length === 0 ? (
+                ) : allComments.length === 0 ? (
                     <div className="p-6 bg-gray-50 rounded-lg text-center">
                         <MessageCircle size={32} className="mx-auto text-gray-300 mb-2" />
-                        <p className="text-gray-500 font-medium">{canComment ? 'Start the conversation!' : 'No messages yet.'}</p>
-                        <p className="text-gray-400 text-xs mt-1">Use this thread to ask questions or share updates about this task.</p>
+                        <p className="text-gray-500 font-medium">{canComment ? 'Start the pool conversation!' : 'No messages yet.'}</p>
+                        <p className="text-gray-400 text-xs mt-1">Everyone assigned to this task can see and participate in this discussion.</p>
                     </div>
                 ) : (
-                    comments.map((comment) => (
+                    allComments.map((comment) => (
                         <div key={comment.comment_id} className="space-y-2">
                             <div className="flex gap-3">
                                 {/* Avatar */}

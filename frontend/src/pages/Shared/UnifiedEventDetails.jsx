@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, Edit, Edit2, Clock, Users, Plus, X, Trash2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Edit, Edit2, Clock, Users, Plus, X, Trash2, CheckCircle, History } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import EditEventModal from '../../components/EditEventModal';
 import { useAuth } from '../../context/AuthContext';
@@ -54,6 +54,29 @@ const UnifiedEventDetails = () => {
         amount_promised: '',
         status: 'Paid'
     });
+    
+    // PARTNERSHIP ARCHIVE STATE
+    const [showArchiveModal, setShowArchiveModal] = useState(false);
+    const [archiveData, setArchiveData] = useState([]);
+    const [isLoadingArchive, setIsLoadingArchive] = useState(false);
+
+    const handleViewArchive = async () => {
+        setShowArchiveModal(true);
+        if (archiveData.length > 0) return; // Prevent refetching unnecessarily
+        
+        setIsLoadingArchive(true);
+        try {
+           const res = await fetch(`http://localhost:5000/api/events/partnerships/archive`);
+           if (res.ok) {
+               const data = await res.json();
+               setArchiveData(data);
+           }
+        } catch (err) {
+           console.error("Error fetching archive:", err);
+        } finally {
+           setIsLoadingArchive(false);
+        }
+    };
 
     // OVERVIEW & TIMELINE STATE
     const [showOverviewModal, setShowOverviewModal] = useState(false);
@@ -69,6 +92,34 @@ const UnifiedEventDetails = () => {
     const [editTimelineData, setEditTimelineData] = useState({ title: '', date: '' });
 
     const [showDiscussionTask, setShowDiscussionTask] = useState(null);
+    const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
+
+    const checkTaskHealth = async (tasksList) => {
+        const today = new Date();
+        const oneWeekFromNow = new Date();
+        oneWeekFromNow.setDate(today.getDate() + 7);
+
+        for (const t of tasksList) {
+            const due = t.deadline ? new Date(t.deadline) : null;
+            if (!due || t.status === 'Verified') continue;
+
+            const isNearDeadline = due <= oneWeekFromNow;
+            const isUnderStaffed = t.is_volunteer_opportunity && t.current_volunteers < t.volunteer_limit;
+            const isUnassigned = !t.is_volunteer_opportunity && !t.assignedTo;
+
+            if (isNearDeadline && (isUnderStaffed || isUnassigned)) {
+                // Determine criticality
+                let message = "";
+                if (isUnassigned) message = `Assigned task "${t.title}" is due soon (${due.toLocaleDateString()}) but has NO assignee.`;
+                else if (isUnderStaffed) message = `Volunteer task "${t.title}" is due soon but only ${t.current_volunteers}/${t.volunteer_limit} slots are filled.`;
+
+                if (message) {
+                    console.log("Health Alert:", message);
+                    // Proactively notify if possible (or just log for now to avoid spam during testing)
+                }
+            }
+        }
+    };
 
     const handleSaveTimelineEdit = async (timelineId) => {
         try {
@@ -314,9 +365,9 @@ const UnifiedEventDetails = () => {
     const isStaff = user?.hierarchy_level >= 6 || user?.user_type === 'Academic_Staff';
     
     const [isOC, setIsOC] = useState(false);
-    // ST and Academic Staff are NOT managers for events; they only have viewing access.
-    // OC members (2) can manage their specific event.
-    const canManage = (isExecutive || isOC) && !isStaff;
+    // Only Executive Board (JT/ST/Pres) can manage/edit events. 
+    // OC members, Members, and Academic Staff are now READ-ONLY.
+    const canManage = isExecutive && !isStaff;
     const isReadOnly = !canManage;
 
     const [editingId, setEditingId] = useState(null);
@@ -340,6 +391,7 @@ const UnifiedEventDetails = () => {
                     const found = fetchedData.committee.some(c => c.id === user?.student_no);
                     setIsOC(found);
                 }
+                if (fetchedData.tasks) checkTaskHealth(fetchedData.tasks);
             }
         } catch (err) { }
         finally { setLoading(false); }
@@ -468,36 +520,58 @@ const UnifiedEventDetails = () => {
                                     <div className="text-xs text-gray-400 mt-1">{task.description}</div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1.5">
                                         {task.is_volunteer_opportunity ? (
-                                            <span className="text-purple-500 font-semibold italic">Open for Volunteer</span>
+                                            <>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${task.current_volunteers >= task.volunteer_limit ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                        {task.current_volunteers} / {task.volunteer_limit} Slots
+                                                    </span>
+                                                </div>
+                                                {task.assignedTo ? (
+                                                    <div className="text-[11px] text-gray-600 bg-gray-50 p-1.5 rounded border border-gray-100">
+                                                        <p className="font-bold border-b border-gray-200 mb-1 pb-1">Volunteers:</p>
+                                                        <ul className="list-disc list-inside">
+                                                            {task.assignedTo.split(',').map((name, i) => (
+                                                                <li key={i} className="truncate max-w-[150px]">{name.trim()}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                ) : <span className="text-gray-400 italic text-[11px]">No volunteers yet</span>}
+                                            </>
                                         ) : task.assignedTo ? (
                                             <div className="flex flex-col">
                                                 <span className="text-gray-900 font-bold">{task.assignedTo}</span>
-                                                <span className="text-gray-500 text-xs">{task.assignedStudentNumbers}</span>
+                                                <span className="text-gray-500 text-[10px] bg-gray-100 px-1 rounded w-fit">{task.assignedStudentNumbers}</span>
                                             </div>
                                         ) : (
-                                            <span className="text-gray-400 italic">Unassigned</span>
+                                            <span className="text-gray-400 italic text-xs bg-gray-50 px-2 py-1 rounded">Unassigned</span>
                                         )}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-gray-500">{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'None'}</td>
                                 <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 rounded text-xs font-bold ${task.is_volunteer_opportunity ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${task.is_volunteer_opportunity ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                         {task.is_volunteer_opportunity ? 'Volunteer' : 'Assigned'}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4">
-                                    {task.assignment_id ? (
+                                    {task.assignmentIds ? (
                                         <button 
-                                            onClick={() => setShowDiscussionTask(task)}
-                                            className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-all hover:bg-indigo-100"
+                                            onClick={() => {
+                                                setShowDiscussionTask(task);
+                                                const ids = task.assignmentIds.split(',');
+                                                // If only one assignee, select them automatically
+                                                if (ids.length === 1) setSelectedAssignmentId(ids[0]);
+                                                else setSelectedAssignmentId(null);
+                                            }}
+                                            className="flex items-center gap-1.5 text-indigo-600 hover:text-white font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 transition-all hover:bg-indigo-600 shadow-sm"
                                         >
                                             <MessageIcon size={14} />
-                                            Chat
+                                            Chat ({task.current_volunteers})
                                         </button>
                                     ) : (
-                                        <span className="text-gray-400 text-xs italic">No assignment</span>
+                                        <span className="text-gray-400 text-[10px] font-bold uppercase">No Chat</span>
                                     )}
                                 </td>
                                 <td className="px-6 py-4">
@@ -733,11 +807,16 @@ const UnifiedEventDetails = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-gray-800">Partnerships</h3>
-                {canManage && (
-                    <button onClick={() => { setEditingId(null); setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Paid' }); setShowPartnerModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
-                        <Plus size={16} /> Add Partner
+                <div className="flex gap-3">
+                    <button onClick={handleViewArchive} className="bg-gray-100 text-gray-700 border border-gray-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2">
+                        <History size={16} /> View 5-Year Archive
                     </button>
-                )}
+                    {canManage && (
+                        <button onClick={() => { setEditingId(null); setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Paid' }); setShowPartnerModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
+                            <Plus size={16} /> Add Partner
+                        </button>
+                    )}
+                </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-100 overflow-hidden min-h-[200px] overflow-x-auto">
                 <table className="w-full text-sm text-left">
@@ -1251,15 +1330,83 @@ const UnifiedEventDetails = () => {
                         </div>
                         <div className="flex-1 overflow-y-auto p-2">
                             <CommentsThread 
-                                assignmentId={showDiscussionTask.assignment_id}
+                                taskId={showDiscussionTask.id}
+                                assignmentId={showDiscussionTask.assignmentIds?.split(',')[0]} // Anchor ID
                                 currentUserRole={user?.role || user?.user_type}
-                                isAssignee={user?.id === showDiscussionTask.assigned_user_id}
+                                currentUserId={user?.id}
+                                isAssignee={showDiscussionTask.assignedUserIds?.split(',').map(id => id.trim()).includes(user?.id?.toString())}
                             />
                         </div>
                     </div>
                 </div>
             )}
 
+            {/* PARTNER ARCHIVE OVERLAY */}
+            {showArchiveModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4">
+                    <div className="bg-white rounded-xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[85vh]">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                            <div>
+                                <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                                    <History size={20} className="text-teal-600" /> Past 5 Years Partnership Archive
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-1">Cross-event historical partnership records for informed outreach strategies.</p>
+                            </div>
+                            <button onClick={() => setShowArchiveModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors bg-white p-2 rounded-full shadow-sm">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50">
+                            {isLoadingArchive ? (
+                                <div className="py-20 flex justify-center items-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                                </div>
+                            ) : archiveData.length === 0 ? (
+                                <div className="text-center py-16 px-4 bg-white rounded-xl border border-dashed border-gray-200">
+                                    <History size={48} className="mx-auto text-gray-300 mb-4" />
+                                    <h4 className="text-gray-900 font-bold mb-1">No Archives Found</h4>
+                                    <p className="text-gray-500 text-sm">There are no partnership records from the last 5 years in the system.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {archiveData.map((archive, i) => {
+                                        const eventDate = new Date(archive.start_date).getFullYear();
+                                        return (
+                                            <div key={i} className="bg-white border text-left border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div>
+                                                    <div className="flex items-center gap-3 mb-1">
+                                                        <h4 className="font-bold text-gray-900 text-lg">{archive.company_name}</h4>
+                                                        <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md ${archive.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                            {archive.status}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 flex items-center gap-2">
+                                                        <span className="font-semibold text-gray-800">{archive.event_name} ({eventDate})</span>
+                                                    </p>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 md:flex gap-x-8 gap-y-2 text-sm text-left align-middle border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-6">
+                                                    <div>
+                                                        <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wider">Contact</span>
+                                                        <span className="font-medium text-gray-900">{archive.contact_person || '-'}</span>
+                                                        <span className="block text-gray-500 text-xs">{archive.email || '-'}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wider">Package</span>
+                                                        <span className="font-medium text-teal-600">{archive.package_type || '-'}</span>
+                                                        <span className="block text-gray-700 text-xs font-semibold">{archive.amount_promised ? `LKR ${archive.amount_promised}` : ''}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

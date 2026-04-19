@@ -52,27 +52,14 @@ exports.getEventDetails = async (req, res) => {
                 t.is_volunteer_opportunity, 
                 t.priority, 
                 t.proof_type,
-                CASE 
-                    WHEN t.is_volunteer_opportunity = 1 THEN 
-                        CASE 
-                            WHEN COUNT(DISTINCT ta.assigned_user_id) >= 5 THEN 
-                                'Full - All slots filled (5 volunteers)'
-                            WHEN COUNT(DISTINCT ta.assigned_user_id) > 0 THEN 
-                                CONCAT(COUNT(DISTINCT ta.assigned_user_id), '/5 volunteers')
-                            ELSE 'Open for Volunteer'
-                        END
-                    ELSE 
-                        GROUP_CONCAT(DISTINCT u.full_name SEPARATOR ', ')
-                END as assignedTo,
-                CASE 
-                    WHEN t.is_volunteer_opportunity = 1 THEN 
-                        CONCAT(COUNT(DISTINCT ta.assigned_user_id), '/5')
-                    ELSE 
-                        GROUP_CONCAT(DISTINCT u.student_number SEPARATOR ', ')
-                END as assignedStudentNumbers
+                GROUP_CONCAT(DISTINCT u.full_name SEPARATOR ', ') as assignedTo,
+                GROUP_CONCAT(DISTINCT u.student_number SEPARATOR ', ') as assignedStudentNumbers,
+                GROUP_CONCAT(DISTINCT u.user_id SEPARATOR ',') as assignedUserIds,
+                GROUP_CONCAT(DISTINCT ta.assignment_id SEPARATOR ',') as assignmentIds,
+                COUNT(DISTINCT ta.assignment_id) as current_volunteers
             FROM task t
             LEFT JOIN task_assignment ta ON t.task_id = ta.task_id 
-                AND ta.status IN ('Assigned', 'In_Progress', 'Submitted', 'Verified')
+                AND ta.status IN ('Assigned', 'In_Progress', 'Submitted', 'Verified', 'Rejected')
             LEFT JOIN user u ON ta.assigned_user_id = u.user_id
             WHERE t.event_id = ?
             GROUP BY t.task_id
@@ -101,6 +88,12 @@ exports.getEventDetails = async (req, res) => {
             // Attach to tasks
             tasks.forEach(task => {
                 task.skills = skillsByTask[task.id] || [];
+                
+                // Parse volunteer limit from description (format: <!--VL:N-->)
+                const volMatch = task.description?.match(/<!--VL:(\d+)-->/);
+                task.volunteer_limit = volMatch ? parseInt(volMatch[1]) : 5;
+                // Clean description
+                task.description = task.description?.replace(/<!--VL:\d+-->/, '') || '';
             });
         }
 
@@ -609,14 +602,17 @@ exports.updateTaskAssignmentStatus = async (req, res) => {
         const { taskId, assignmentId } = req.params;
         let { status } = req.body;
 
-        // Normalize frontend "Approved" to database "Verified", and "Declined" to "Rejected"
-        if (status === 'Approved') status = 'Verified';
-        if (status === 'Declined') status = 'Rejected';
+        console.log(`[updateTaskAssignmentStatus] Request: taskId=${taskId}, assignmentId=${assignmentId}, requestedStatus=${status}`);
+
+        // Normalize frontend statuses
+        if (status === 'Approved' || status === 'Verify') status = 'Verified';
+        if (status === 'Declined' || status === 'Reject' || status === 'Needs_Revision') status = 'Rejected';
         if (status === 'In Progress') status = 'In_Progress';
 
         const validStatuses = ['Volunteer', 'Assigned', 'In_Progress', 'Submitted', 'Verified', 'Rejected'];
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message: 'Invalid status value.' });
+            console.error(`[updateTaskAssignmentStatus] Invalid status: ${status}`);
+            return res.status(400).json({ message: 'Invalid status value: ' + status });
         }
 
         connection = await db.getConnection();
@@ -632,9 +628,9 @@ exports.updateTaskAssignmentStatus = async (req, res) => {
             return res.status(404).json({ message: 'Assignment not found.' });
         }
 
-        // Get assignment user ID for notifications
+        // Get assignment details to determine notification and skill awards
         const [assignmentData] = await connection.execute(
-            `SELECT ta.assigned_user_id, t.title, t.priority 
+            `SELECT ta.assigned_user_id, t.title, t.priority, t.task_id
              FROM task_assignment ta
              JOIN task t ON ta.task_id = t.task_id
              WHERE ta.assignment_id = ?`,
@@ -642,78 +638,157 @@ exports.updateTaskAssignmentStatus = async (req, res) => {
         );
 
         if (assignmentData.length > 0) {
-            const { assigned_user_id, title, priority } = assignmentData[0];
+            const { assigned_user_id, title, priority, task_id } = assignmentData[0];
 
-            // AUTOMATIC SKILL AWARDING LOGIC
+            // 1. APPROVAL LOGIC (Status: Verified)
             if (status === 'Verified') {
                 const points = priority === 'High' ? 30 : priority === 'Medium' ? 20 : 10;
 
-                // Get the Skills linked to this task
+                // Award Skills
                 const [skills] = await connection.execute(
                     `SELECT skill_tag_id FROM task_skill WHERE task_id = ?`,
-                    [taskId]
+                    [task_id]
                 );
 
-                // Award the skills
                 if (skills.length > 0) {
                     for (const row of skills) {
-                        const sId = row.skill_tag_id;
                         await connection.execute(`
                             INSERT INTO member_skill_level (user_id, skill_tag_id, points, last_verified_at)
                             VALUES (?, ?, ?, NOW())
                             ON DUPLICATE KEY UPDATE points = points + ?, last_verified_at = NOW()
-                        `, [assigned_user_id, sId, points, points]);
+                        `, [assigned_user_id, row.skill_tag_id, points, points]);
                     }
                 }
 
-                // UPDATE PARENT TASK STATUS
+                // Update Parent Task Status to Completed
                 await connection.execute(
                     `UPDATE task SET status = 'Completed' WHERE task_id = ?`,
-                    [taskId]
+                    [task_id]
                 );
 
-                // Send approval notification
+                // Notify Member
                 await connection.execute(
                     `INSERT INTO notification (user_id, title, message, type) 
-                     VALUES (?, ?, ?, 'TASK')`,
-                    [assigned_user_id, 'Task Approved! ✓', `Your task "${title}" has been approved. Skills have been added to your profile!`]
+                     VALUES (?, 'Task Approved! ✓', ?, 'TASK')`,
+                    [assigned_user_id, `Your work for "${title}" has been approved. Skills points awarded!`]
                 );
-            } else if (status === 'Rejected') {
-                // Send rejection notification
+
+                console.log(`[updateTaskAssignmentStatus] Task ${task_id} marked as Completed and assignment ${assignmentId} Verified.`);
+            } 
+            
+            // 2. REVISION LOGIC (Status: Rejected)
+            else if (status === 'Rejected') {
+                // Ensure parent task is not Completed if an assignment is rejected
+                await connection.execute(
+                    `UPDATE task SET status = 'In Progress' WHERE task_id = ? AND status = 'Submitted'`,
+                    [task_id]
+                );
+
+                // Notify Member
                 await connection.execute(
                     `INSERT INTO notification (user_id, title, message, type) 
-                     VALUES (?, ?, ?, 'TASK')`,
-                    [assigned_user_id, 'Task Changes Requested', `Your task "${title}" needs changes. Please review comments and resubmit.`]
+                     VALUES (?, 'Revisions Requested', ?, 'TASK')`,
+                    [assigned_user_id, `Your submission for "${title}" needs revisions. Check the discussion for feedback.`]
                 );
+                
+                console.log(`[updateTaskAssignmentStatus] Assignment ${assignmentId} rejected (Needs Revision).`);
             }
         }
 
         await connection.commit();
-        res.json({ message: 'Status updated successfully' });
+        res.json({ 
+            message: 'Status updated successfully', 
+            newStatus: status,
+            isApproved: status === 'Verified'
+        });
     } catch (err) {
         if (connection) await connection.rollback();
         console.error("Error updating assignment status:", err);
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ message: 'Server Error: ' + err.message });
     } finally {
         if (connection) connection.release();
     }
 };
 
 exports.updateTaskStatus = async (req, res) => {
+    let connection;
     try {
-        const { id, taskId } = req.params;
-        const { status } = req.body;
+        const { id: eventId, taskId } = req.params;
+        let { status } = req.body;
         
         if (!status) return res.status(400).json({ message: "Status is required." });
 
-        await db.execute(
+        // Normalize status
+        if (status === 'Approved') status = 'Completed';
+        if (status === 'Declined') status = 'Pending';
+
+        connection = await db.getConnection();
+        await connection.beginTransaction();
+
+        // 1. Update Task Status
+        const [result] = await connection.execute(
             `UPDATE task SET status = ? WHERE task_id = ? AND event_id = ?`,
-            [status, taskId, id]
+            [status, taskId, eventId]
         );
-        res.json({ message: 'Task status updated' });
+
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: "Task not found." });
+        }
+
+        // 2. If marking as Completed, also verify any 'Submitted' assignments
+        if (status === 'Completed') {
+            // Find all 'Submitted' or 'In_Progress' assignments for this task
+            const [assignments] = await connection.execute(
+                `SELECT assignment_id FROM task_assignment WHERE task_id = ? AND status IN ('Submitted', 'In_Progress', 'Assigned')`,
+                [taskId]
+            );
+
+            // Verify them all (triggers skill awards)
+            for (const asgn of assignments) {
+                // Here we call the same logic as updateTaskAssignmentStatus but manually
+                await connection.execute(
+                    `UPDATE task_assignment SET status = 'Verified' WHERE assignment_id = ?`,
+                    [asgn.assignment_id]
+                );
+
+                // Award Skills logic (duplicated for safety or we could refactor)
+                // Fetch details for this assignment
+                const [asgnData] = await connection.execute(
+                    `SELECT ta.assigned_user_id, t.priority 
+                     FROM task_assignment ta JOIN task t ON ta.task_id = t.task_id
+                     WHERE ta.assignment_id = ?`,
+                    [asgn.assignment_id]
+                );
+
+                if (asgnData.length > 0) {
+                    const { assigned_user_id, priority } = asgnData[0];
+                    const points = priority === 'High' ? 30 : priority === 'Medium' ? 20 : 10;
+
+                    const [skills] = await connection.execute(
+                        `SELECT skill_tag_id FROM task_skill WHERE task_id = ?`,
+                        [taskId]
+                    );
+
+                    for (const s of skills) {
+                        await connection.execute(`
+                            INSERT INTO member_skill_level (user_id, skill_tag_id, points, last_verified_at)
+                            VALUES (?, ?, ?, NOW())
+                            ON DUPLICATE KEY UPDATE points = points + ?, last_verified_at = NOW()
+                        `, [assigned_user_id, s.skill_tag_id, points, points]);
+                    }
+                }
+            }
+        }
+
+        await connection.commit();
+        res.json({ message: 'Task status updated and synchronized' });
     } catch (err) {
+        if (connection) await connection.rollback();
         console.error("Error updating task status:", err);
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ message: 'Server Error: ' + err.message });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
@@ -1059,13 +1134,31 @@ exports.submitTaskWithLink = async (req, res) => {
 exports.getComments = async (req, res) => {
     try {
         const { assignmentId } = req.params;
-        const [rows] = await db.execute(`
-            SELECT tc.comment_id, tc.comment_text as text, tc.created_at, u.full_name as user, tc.user_id
-            FROM task_comment tc
-            JOIN user u ON tc.user_id = u.user_id
-            WHERE tc.assignment_id = ?
-            ORDER BY tc.created_at ASC
-        `, [assignmentId]);
+        const taskId = req.query.taskId;
+
+        console.log(`[getComments] Fetching comments. taskId: ${taskId}, assignmentId: ${assignmentId}`);
+
+        let query, params;
+        if (taskId) {
+            query = `
+                SELECT tc.comment_id, tc.comment_text as text, tc.created_at, u.full_name as user, tc.user_id
+                FROM task_comment tc
+                JOIN user u ON tc.user_id = u.user_id
+                WHERE tc.task_id = ? 
+                   OR tc.assignment_id IN (SELECT assignment_id FROM task_assignment WHERE task_id = ?)
+                ORDER BY tc.created_at ASC`;
+            params = [taskId, taskId];
+        } else {
+            query = `
+                SELECT tc.comment_id, tc.comment_text as text, tc.created_at, u.full_name as user, tc.user_id
+                FROM task_comment tc
+                JOIN user u ON tc.user_id = u.user_id
+                WHERE tc.assignment_id = ?
+                ORDER BY tc.created_at ASC`;
+            params = [assignmentId];
+        }
+
+        const [rows] = await db.execute(query, params);
         res.json(rows);
     } catch (err) {
         console.error("Error fetching comments:", err);
@@ -1078,24 +1171,26 @@ exports.addComment = async (req, res) => {
         const { assignmentId } = req.params;
         const { user_id, text } = req.body;
         
-        console.log(`[addComment] Received request: assignmentId=${assignmentId}, user_id=${user_id}`);
+        console.log(`[addComment] Received group chat request: assignmentId=${assignmentId}, user_id=${user_id}`);
         
         if (!user_id || !text) {
-            console.log('[addComment] Missing user_id or text');
             return res.status(400).json({ message: 'user_id and text are required.' });
         }
 
-        // Insert comment
-        console.log(`[addComment] Inserting comment into task_comment table...`);
+        // Get task_id from assignment_id to ensure group chat sync
+        const [taskLookup] = await db.execute('SELECT task_id FROM task_assignment WHERE assignment_id = ?', [assignmentId]);
+        const taskId = taskLookup[0]?.task_id;
+
+        // Insert comment with task_id for group-wide visibility
+        console.log(`[addComment] Group Pool Chat: Inserting comment for task_id ${taskId}...`);
         let result;
         try {
             [result] = await db.execute(
-                `INSERT INTO task_comment (assignment_id, user_id, comment_text) VALUES (?, ?, ?)`,
-                [assignmentId, user_id, text]
+                `INSERT INTO task_comment (assignment_id, task_id, user_id, comment_text) VALUES (?, ?, ?, ?)`,
+                [assignmentId, taskId || null, user_id, text]
             );
-            console.log(`[addComment] Comment inserted successfully, comment_id: ${result.insertId}`);
         } catch (insertErr) {
-            console.error('[addComment] ERROR inserting comment:', insertErr);
+            console.error('[addComment] ERROR inserting group comment:', insertErr);
             throw insertErr;
         }
 

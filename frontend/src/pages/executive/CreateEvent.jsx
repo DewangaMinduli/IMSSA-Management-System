@@ -149,26 +149,13 @@ const CreateEvent = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans relative">
-            {/* HEADER */}
-            <div className="bg-white px-6 py-4 flex justify-between items-center shadow-sm sticky top-0 z-50">
-                <div className="flex items-center gap-4">
-                    <ArrowLeft className="cursor-pointer text-gray-500 hover:text-gray-700" size={20} onClick={() => navigate(-1)} />
-                    <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        Hello, {user?.full_name?.split(' ')[0] || 'Executive'} 👋
-                    </h1>
-                </div>
-                <div className="flex items-center gap-4">
-                    <span className="bg-teal-50 text-teal-700 px-3 py-1 rounded-full text-sm font-semibold">
-                        {user?.role_name?.replace(/_/g, ' ') || 'Executive Board'}
-                    </span>
-                    <UserDropdown user={user} colorClass="bg-teal-50 text-teal-700" />
-                </div>
-            </div>
-
             <div className="max-w-4xl mx-auto px-6 mt-10">
+                <div className="flex items-center gap-4 mb-6">
+                    <ArrowLeft className="cursor-pointer text-gray-500 hover:text-gray-700" size={24} onClick={() => navigate(-1)} />
+                    <h1 className="text-2xl font-bold text-gray-900">Create New Event</h1>
+                </div>
+                
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-                    <h2 className="text-xl font-bold text-gray-900 mb-8">Create New Event</h2>
-
                     {/* Status Messages removed in favor of global notifications */}
 
 

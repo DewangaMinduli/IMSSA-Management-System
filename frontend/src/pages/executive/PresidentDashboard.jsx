@@ -53,6 +53,10 @@ const PresidentDashboard = () => {
             }
         };
         fetchData();
+
+        // Listen for task approval from TaskDetails page and refresh
+        window.addEventListener('taskApproved', fetchData);
+        return () => window.removeEventListener('taskApproved', fetchData);
     }, [user]);
 
     const handleApplyVolunteer = async (task) => {
@@ -159,7 +163,7 @@ const PresidentDashboard = () => {
                     ) : tasksToApprove.map(task => (
                         <div 
                             key={task.assignment_id} 
-                            onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}`)}
+                            onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`)}
                             className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-all group"
                         >
                             <div>
@@ -177,7 +181,7 @@ const PresidentDashboard = () => {
                                 <button 
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/exec/tasks/${task.id}/${task.assignment_id}`);
+                                        navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`);
                                     }}
                                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition-colors"
                                 >
