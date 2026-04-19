@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotify } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import {
     DollarSign, TrendingUp, TrendingDown, Calendar,
     FileText, Plus, Upload, CreditCard, ChevronRight, AlertTriangle,
@@ -84,6 +85,7 @@ const JuniorTreasurerDashboard = () => {
 
     // Global Notification
     const notify = useNotify();
+    const { confirm } = useConfirm();
 
     // Filters
     const [filters, setFilters] = useState({ account_id: '', event_id: '' });
@@ -202,8 +204,8 @@ const JuniorTreasurerDashboard = () => {
     };
 
     const handleEdit = (tx) => {
-        if (tx.status === 'Approved' || tx.status === 'Verified') {
-            notify("This transaction is already audited and cannot be edited.", "error");
+        if (tx.status !== 'Pending') {
+            notify("This transaction has been finalized (Approved/Rejected) and cannot be edited.", "error");
             return;
         }
         setForm({
@@ -222,7 +224,12 @@ const JuniorTreasurerDashboard = () => {
     };
 
     const handleDelete = async (tx) => {
-        if (!window.confirm("Are you sure you want to delete this transaction? This action will permanently remove the record and adjust the corresponding account balance.")) return;
+        if (tx.status !== 'Pending') {
+            notify("This transaction has been finalized (Approved/Rejected) and cannot be deleted.", "error");
+            return;
+        }
+        const ok = await confirm("Are you sure you want to delete this transaction? This action will permanently remove the record and adjust the corresponding account balance.");
+        if (!ok) return;
         try {
             const res = await fetch(`http://localhost:5000/api/finance/transaction/${tx.transaction_id}`, {
                 method: 'DELETE',
@@ -477,22 +484,24 @@ const JuniorTreasurerDashboard = () => {
                                                             Reason: {tx.missing_proof_reason}
                                                         </div>
                                                     )}
-                                                    <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                        <button 
-                                                            onClick={() => handleEdit(tx)}
-                                                            className="p-1.5 bg-gray-50 text-blue-500 hover:bg-blue-100 rounded transition"
-                                                            title="Edit"
-                                                        >
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleDelete(tx)}
-                                                            className="p-1.5 bg-gray-50 text-red-500 hover:bg-red-100 rounded transition"
-                                                            title="Delete"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
+                                                    {tx.status === 'Pending' && (
+                                                        <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-all">
+                                                            <button 
+                                                                onClick={() => handleEdit(tx)}
+                                                                className="p-1.5 bg-gray-50 text-blue-500 hover:bg-blue-100 rounded transition"
+                                                                title="Edit"
+                                                            >
+                                                                <Pencil size={14} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDelete(tx)}
+                                                                className="p-1.5 bg-gray-50 text-red-500 hover:bg-red-100 rounded transition"
+                                                                title="Delete"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}

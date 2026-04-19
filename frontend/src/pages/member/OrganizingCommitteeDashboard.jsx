@@ -5,12 +5,14 @@ import {
     ChevronRight, Users, Calendar, X, ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotify } from '../../context/NotificationContext';
 import UserDropdown from '../../components/UserDropdown';
 import VolunteerTaskModal from '../../components/VolunteerTaskModal';
 
 const OrganizingCommitteeDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const notify = useNotify();
     const [showNotifications, setShowNotifications] = useState(false);
     
     // Data states
@@ -114,11 +116,10 @@ const OrganizingCommitteeDashboard = () => {
                 body: JSON.stringify({ user_id: uid })
             });
             const data = await res.json();
-            alert(res.ok ? `Volunteered for: ${task.title}!` : data.message);
             
             // Remove from list immediately
             if (res.ok) {
-                alert(`Volunteered for: ${task.title}!`);
+                notify(`Volunteered for: ${task.title}!`, 'success');
                 setVolunteerOps(prev => prev.filter(op => op.id !== task.id));
                 setMyTasks(prev => [...prev, { ...task, status: 'Assigned' }]);
                 
@@ -126,9 +127,11 @@ const OrganizingCommitteeDashboard = () => {
                 window.dispatchEvent(new CustomEvent('taskAssigned', { 
                     detail: { taskId: task.id, eventId: task.event_id } 
                 }));
+            } else {
+                notify(data.message || 'Failed to volunteer.', 'error');
             }
         } catch (err) {
-            alert('Failed to volunteer. Try again.');
+            notify('Failed to volunteer. Try again.', 'error');
         }
         setSelectedVolunteerTask(null);
     };

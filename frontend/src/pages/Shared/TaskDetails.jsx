@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useNotify } from '../../context/NotificationContext';
 import FileUploadForm from '../../components/FileUploadForm';
 import CommentsThread from '../../components/CommentsThread';
 import {
@@ -13,6 +14,7 @@ const TaskDetails = () => {
     const { taskId, assignmentId } = useParams();
     const location = useLocation();
     const { user } = useAuth();
+    const notify = useNotify();
     
     // Detect if we are in "Review/Approval" mode
     const isReviewMode = new URLSearchParams(location.search).get('mode') === 'review';
@@ -75,17 +77,13 @@ const TaskDetails = () => {
                 detail: { taskId, assignmentId, status: newStatus } 
             }));
 
-            // Alert success then navigate back
-            const msg = newStatus === 'Approved' 
-                ? 'Task successfully approved!' 
-                : 'Task sent back for revisions.';
-            
-            alert(msg);
+            // Alert success then navigate
+            notify(`Submission successfully updated to: ${newStatus}`, 'success');
             navigate(-1); // Go back to dashboard/task list
             
         } catch (err) {
-            console.error('Error updating status:', err);
-            setError(err.message || 'Failed to update status');
+            console.error('Action error:', err);
+            notify(err.message, 'error');
         } finally {
             setApprovalAction(null);
         }

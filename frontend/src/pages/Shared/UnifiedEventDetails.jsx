@@ -3,6 +3,8 @@ import { ArrowLeft, Calendar, Edit, Edit2, Clock, Users, Plus, X, Trash2, CheckC
 import { useNavigate, useParams } from 'react-router-dom';
 import EditEventModal from '../../components/EditEventModal';
 import { useAuth } from '../../context/AuthContext';
+import { useNotify } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { Bell, Home } from 'lucide-react';
 import UserDropdown from '../../components/UserDropdown';
 import CommentsThread from '../../components/CommentsThread';
@@ -12,6 +14,8 @@ const UnifiedEventDetails = () => {
     const { eventId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const notify = useNotify();
+    const { confirm } = useConfirm();
     const [showNotifications, setShowNotifications] = useState(false);
     const notifications = [];
 
@@ -50,6 +54,8 @@ const UnifiedEventDetails = () => {
     const [newPartner, setNewPartner] = useState({
         company_name: '',
         contact_person: '',
+        contact_number: '',
+        email: '',
         package_type: 'Monetary',
         amount_promised: '',
         status: 'Paid'
@@ -133,7 +139,7 @@ const UnifiedEventDetails = () => {
                 setEditTimelineId(null);
                 fetchEventDetails();
             } else {
-                alert('Error updating timeline stage');
+                notify('Error updating timeline stage', 'error');
             }
         } catch (err) { console.error(err); }
     };
@@ -160,7 +166,7 @@ const UnifiedEventDetails = () => {
                     fetchEventDetails();
                 } else {
                     const data = await res.json();
-                    alert(data.message || 'Error updating task');
+                    notify(data.message || 'Error updating task', 'error');
                 }
             } else {
                 const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks`, {
@@ -179,7 +185,7 @@ const UnifiedEventDetails = () => {
                     fetchEventDetails();
                 } else {
                     const data = await res.json();
-                    alert(data.message || 'Error adding task');
+                    notify(data.message || 'Error adding task', 'error');
                 }
             }
         } catch (err) {
@@ -225,7 +231,7 @@ const UnifiedEventDetails = () => {
                 fetchEventDetails();
             } else {
                 const data = await res.json();
-                alert(data.message || 'Error adding OC Member: Check if student exists or is already added.');
+                notify(data.message || 'Error adding OC Member: Check if student exists or is already added.', 'error');
             }
         } catch (err) {
             console.error(err);
@@ -248,7 +254,7 @@ const UnifiedEventDetails = () => {
                 fetchEventDetails();
             } else {
                 const data = await res.json();
-                alert(data.message || 'Error saving role or student ID. Make sure student ID is valid.');
+                notify(data.message || 'Error saving role or student ID. Make sure student ID is valid.', 'error');
             }
         } catch (err) {
             console.error(err);
@@ -256,7 +262,8 @@ const UnifiedEventDetails = () => {
     };
 
     const handleDeleteTask = async (taskId) => {
-        if (!window.confirm("Are you sure you want to delete this task?")) return;
+        const ok = await confirm("Are you sure you want to delete this task? This cannot be undone.");
+        if (!ok) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks/${taskId}`, {
@@ -268,7 +275,8 @@ const UnifiedEventDetails = () => {
     };
 
     const handleCancelTask = async (taskId) => {
-        if (!window.confirm("Are you sure you want to cancel this task?")) return;
+        const ok = await confirm("Are you sure you want to cancel this task?");
+        if (!ok) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:5000/api/events/${eventId}/tasks/${taskId}`, {
@@ -314,7 +322,8 @@ const UnifiedEventDetails = () => {
     };
 
     const handleDeleteTimeline = async (timelineId) => {
-        if (!window.confirm("Are you sure you want to delete this stage?")) return;
+        const ok = await confirm("Are you sure you want to delete this timeline stage?");
+        if (!ok) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:5000/api/events/${eventId}/timeline/${timelineId}`, {
@@ -326,7 +335,8 @@ const UnifiedEventDetails = () => {
     };
 
     const handleDeletePartnership = async (partnershipId) => {
-        if (!window.confirm("Are you sure you want to delete this partnership?")) return;
+        const ok = await confirm("Are you sure you want to delete this partnership?");
+        if (!ok) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:5000/api/events/${eventId}/partnerships/${partnershipId}`, {
@@ -411,7 +421,8 @@ const UnifiedEventDetails = () => {
 
 
     const handleDelete = async () => {
-        if (!window.confirm("Are you sure you want to delete this event? This cannot be undone.")) return;
+        const ok = await confirm("Are you sure you want to delete this event? This action cannot be undone.");
+        if (!ok) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:5000/api/events/${eventId}`, {
@@ -419,7 +430,7 @@ const UnifiedEventDetails = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
-                alert("Event deleted successfully!");
+                notify("Event deleted successfully!", "success");
                 navigate(-1);
             }
         } catch (err) { }
@@ -735,7 +746,8 @@ const UnifiedEventDetails = () => {
                                                     </button>
                                                     <button 
                                                         onClick={async () => {
-                                                            if(!window.confirm("Remove this member from OC?")) return;
+                                                        const ok = await confirm("Remove this member from the Organizing Committee?");
+                                                        if (!ok) return;
                                                             try {
                                                                 const token = localStorage.getItem('token');
                                                                 const res = await fetch(`http://localhost:5000/api/events/oc/${member.eo_id}`, {
@@ -779,7 +791,7 @@ const UnifiedEventDetails = () => {
                 if (res.ok) {
                     setEditingId(null);
                     setShowPartnerModal(false);
-                    setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Pending' });
+                    setNewPartner({ company_name: '', contact_person: '', contact_number: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Pending' });
                     fetchEventDetails();
                 }
             } else {
@@ -790,7 +802,7 @@ const UnifiedEventDetails = () => {
                 });
                 if (res.ok) {
                     setShowPartnerModal(false);
-                    setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Pending' });
+                    setNewPartner({ company_name: '', contact_person: '', contact_number: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Pending' });
                     fetchEventDetails();
                 }
             }
@@ -812,7 +824,7 @@ const UnifiedEventDetails = () => {
                         <History size={16} /> View 5-Year Archive
                     </button>
                     {canManage && (
-                        <button onClick={() => { setEditingId(null); setNewPartner({ company_name: '', contact_person: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Paid' }); setShowPartnerModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
+                    <button onClick={() => { setEditingId(null); setNewPartner({ company_name: '', contact_person: '', contact_number: '', email: '', package_type: 'Monetary', amount_promised: '', status: 'Paid' }); setShowPartnerModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
                             <Plus size={16} /> Add Partner
                         </button>
                     )}
@@ -824,6 +836,8 @@ const UnifiedEventDetails = () => {
                         <tr>
                             <th className="px-6 py-4">Company Name</th>
                             <th className="px-6 py-4">Contact Person</th>
+                            <th className="px-6 py-4">Contact No.</th>
+                            <th className="px-6 py-4">Email</th>
                             <th className="px-6 py-4">Package</th>
                             <th className="px-6 py-4">Amount</th>
                             <th className="px-6 py-4">Status</th>
@@ -841,7 +855,9 @@ const UnifiedEventDetails = () => {
                             dbPartnerships.map(p => (
                                 <tr key={p.partnership_id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 font-bold text-gray-900">{p.company_name}</td>
-                                    <td className="px-6 py-4 text-gray-500">{p.contact_person}</td>
+                                    <td className="px-6 py-4 text-gray-500">{p.contact_person || '—'}</td>
+                                    <td className="px-6 py-4 text-gray-500">{p.contact_number || '—'}</td>
+                                    <td className="px-6 py-4 text-gray-500 text-xs">{p.email || '—'}</td>
                                     <td className="px-6 py-4 text-gray-500">{p.package_type}</td>
                                     <td className="px-6 py-4 text-green-700 font-semibold">{p.amount_promised}</td>
                                     <td className="px-6 py-4">
@@ -875,11 +891,12 @@ const UnifiedEventDetails = () => {
                             <button onClick={() => setShowPartnerModal(false)}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
                         <form onSubmit={handleAddPartner} className="space-y-4">
-                            <input required placeholder="Company Name" className="w-full border p-2 rounded text-sm" value={newPartner.company_name} onChange={e => setNewPartner({ ...newPartner, company_name: e.target.value })} />
+                            <input required placeholder="Company Name *" className="w-full border border-gray-200 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" value={newPartner.company_name} onChange={e => setNewPartner({ ...newPartner, company_name: e.target.value })} />
                             <div className="grid grid-cols-2 gap-4">
-                                <input required placeholder="Contact Person" className="w-full border p-2 rounded text-sm" value={newPartner.contact_person} onChange={e => setNewPartner({ ...newPartner, contact_person: e.target.value })} />
-                                <input required type="email" placeholder="Email" className="w-full border p-2 rounded text-sm" value={newPartner.email} onChange={e => setNewPartner({ ...newPartner, email: e.target.value })} />
+                                <input placeholder="Contact Person" className="w-full border border-gray-200 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" value={newPartner.contact_person || ''} onChange={e => setNewPartner({ ...newPartner, contact_person: e.target.value })} />
+                                <input placeholder="Contact Number" className="w-full border border-gray-200 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" value={newPartner.contact_number || ''} onChange={e => setNewPartner({ ...newPartner, contact_number: e.target.value })} />
                             </div>
+                            <input type="email" placeholder="Email Address" className="w-full border border-gray-200 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500" value={newPartner.email || ''} onChange={e => setNewPartner({ ...newPartner, email: e.target.value })} />
                             <div className="grid grid-cols-2 gap-4">
                                 <input list="package-dropdown" placeholder="Type Package or Select..." className="w-full border p-2 rounded text-sm" value={newPartner.package_type} onChange={e => setNewPartner({ ...newPartner, package_type: e.target.value })} />
                                 <datalist id="package-dropdown">

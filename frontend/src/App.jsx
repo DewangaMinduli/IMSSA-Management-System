@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './pages/Login';
@@ -59,8 +60,9 @@ const Layout = ({ children }) => (
 export default function App() {
   return (
     <NotificationProvider>
-      <AuthProvider>
-        <BrowserRouter>
+      <ConfirmProvider>
+        <AuthProvider>
+          <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
@@ -115,8 +117,9 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        </BrowserRouter>
+        </AuthProvider>
+      </ConfirmProvider>
     </NotificationProvider>
   );
 }

@@ -5,11 +5,13 @@ import UserDropdown from '../../components/UserDropdown';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNotify } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import BudgetReportModal from '../../components/BudgetReportModal';
 
 const SeniorTreasurerDashboard = () => {
     const navigate = useNavigate();
     const notify = useNotify();
+    const { confirm } = useConfirm();
     const { user } = useAuth();
     const [financeData, setFinanceData] = useState({ accounts: [], transactions: [], events: [] });
     // Phase 5 States
@@ -29,6 +31,11 @@ const SeniorTreasurerDashboard = () => {
     const [skillMembersLoading, setSkillMembersLoading] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
     const [selectedEvidence, setSelectedEvidence] = useState(null);
+
+    // Reject Modal State
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectTransactionId, setRejectTransactionId] = useState(null);
+    const [rejectReason, setRejectReason] = useState('');
 
     const handleSkillClick = async (skill) => {
         setSelectedSkill(skill);
@@ -131,7 +138,8 @@ const SeniorTreasurerDashboard = () => {
     };
 
     const handleApproveTransaction = async (id) => {
-        if (!window.confirm("Verify and approve this transaction? This will mark it as audited.")) return;
+        const ok = await confirm("Verify and approve this transaction? This will mark it as audited and lock it from further edits.");
+        if (!ok) return;
         try {
             const res = await fetch(`http://localhost:5000/api/finance/transaction/${id}/approve`, {
                 method: 'PUT',
@@ -149,18 +157,28 @@ const SeniorTreasurerDashboard = () => {
         }
     };
 
-    const handleRejectTransaction = async (id) => {
-        const reason = window.prompt("Reason for rejection:");
-        if (reason === null) return;
+    const handleRejectTransaction = (id) => {
+        setRejectTransactionId(id);
+        setRejectReason('');
+        setShowRejectModal(true);
+    };
+
+    const submitRejection = async () => {
+        if (!rejectReason.trim()) {
+            notify("Please provide a reason for rejection.", "error");
+            return;
+        }
         
         try {
-            const res = await fetch(`http://localhost:5000/api/finance/transaction/${id}/reject`, {
+            const res = await fetch(`http://localhost:5000/api/finance/transaction/${rejectTransactionId}/reject`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason, user_id: user.id })
+                body: JSON.stringify({ reason: rejectReason, user_id: user.id })
             });
             if (res.ok) {
                 notify("Transaction rejected.", "success");
+                setShowRejectModal(false);
+                setRejectTransactionId(null);
                 fetchData();
             } else {
                 notify("Failed to reject transaction.", "error");
@@ -171,7 +189,8 @@ const SeniorTreasurerDashboard = () => {
     };
 
     const handleDeleteRequest = async (id) => {
-        if (!window.confirm("Are you sure you want to remove this request from the system?")) return;
+        const ok = await confirm("Are you sure you want to remove this recommendation letter request from the system?");
+        if (!ok) return;
         try {
             const res = await fetch(`http://localhost:5000/api/users/requests/${id}`, {
                 method: 'DELETE',
@@ -762,6 +781,51 @@ const SeniorTreasurerDashboard = () => {
                         </div>
                         <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 flex justify-center">
                             <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">IMSSA Audit Protocol Compliance</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* MODAL: Reject Transaction */}
+            {showRejectModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="absolute inset-0 bg-gray-600/30 backdrop-blur-sm" onClick={() => setShowRejectModal(false)}></div>
+                    <div className="relative bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-red-50/50">
+                            <div>
+                                <h3 className="text-lg font-black text-red-700 tracking-tight flex items-center gap-2">
+                                    <X className="bg-red-100 text-red-600 p-1 rounded-full" size={24} /> Reject Transaction
+                                </h3>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Audit Rejection Notice</p>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-sm text-gray-600">Please provide a reason to the Junior Treasurer so they can correct the financing details and resubmit the transaction.</p>
+                            
+                            <div className="space-y-1 mt-4">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Rejection Reason</label>
+                                <textarea 
+                                    className="w-full border-2 border-red-100 rounded-xl p-3 text-sm focus:border-red-400 focus:ring-0 outline-none transition-colors h-24 resize-none font-medium text-gray-700 placeholder-gray-300"
+                                    placeholder="E.g., The bill proof is blurry, please re-upload a clearer image."
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-gray-50 bg-gray-50/50 flex gap-3">
+                            <button 
+                                onClick={() => setShowRejectModal(false)}
+                                className="flex-1 py-3 text-xs font-bold text-gray-500 hover:bg-gray-100 uppercase tracking-widest rounded-xl transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={submitRejection}
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-bold text-xs shadow-md shadow-red-100 uppercase tracking-widest transition-all active:scale-[0.98]"
+                            >
+                                Submit Rejection
+                            </button>
                         </div>
                     </div>
                 </div>

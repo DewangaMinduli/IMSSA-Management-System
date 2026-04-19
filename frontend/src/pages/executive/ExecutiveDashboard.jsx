@@ -5,12 +5,14 @@ import {
     Bell, Clock, ChevronRight, Home, ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNotify } from '../../context/NotificationContext';
 import VolunteerTaskModal from '../../components/VolunteerTaskModal';
 import UserDropdown from '../../components/UserDropdown';
 
 const ExecutiveDashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const notify = useNotify();
     const [selectedVolunteerTask, setSelectedVolunteerTask] = useState(null);
     const [events, setEvents] = useState([]);
     const [loadingEvents, setLoadingEvents] = useState(true);
@@ -69,14 +71,14 @@ const ExecutiveDashboard = () => {
             const data = await res.json();
             
             if (res.ok) {
-                alert(`Volunteered for: ${task.title}!`);
+                notify(`Volunteered for: ${task.title}!`, 'success');
                 setVolunteerOps(prev => prev.filter(op => op.id !== task.id));
                 setMyTasks(prev => [...prev, { ...task, status: 'Assigned' }]);
             } else {
-                alert(data.message || 'Failed to volunteer.');
+                notify(data.message || 'Failed to volunteer.', 'error');
             }
         } catch (err) {
-            alert('Failed to volunteer. Try again.');
+            notify('Failed to volunteer. Try again.', 'error');
         }
         setSelectedVolunteerTask(null);
     };

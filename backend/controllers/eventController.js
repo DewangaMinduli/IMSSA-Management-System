@@ -116,7 +116,7 @@ exports.getEventDetails = async (req, res) => {
 
         // 5. Get Partnerships for this event
         const [partnerships] = await db.execute(`
-            SELECT partnership_id, company_name, contact_person, email,
+            SELECT partnership_id, company_name, contact_person, email, contact_number,
                    package_type, amount_promised, status
             FROM partnership
             WHERE event_id = ?
@@ -1356,17 +1356,17 @@ exports.deleteTimelineEvent = async (req, res) => {
 exports.addPartnership = async (req, res) => {
     try {
         const eventId = req.params.id;
-        const { company_name, contact_person, email, package_type, amount_promised, status } = req.body;
+        const { company_name, contact_person, email, contact_number, package_type, amount_promised, status } = req.body;
 
         if (!company_name) return res.status(400).json({ message: "Company Name is required." });
 
-        const validStatuses = ['Paid', 'Declined'];
+        const validStatuses = ['Paid', 'Declined', 'Pending'];
         const finalStatus = validStatuses.includes(status) ? status : 'Paid';
 
         const [result] = await db.execute(
-            `INSERT INTO partnership (event_id, company_name, contact_person, email, package_type, amount_promised, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [eventId, company_name, contact_person || null, email || null, package_type || null, amount_promised || null, finalStatus]
+            `INSERT INTO partnership (event_id, company_name, contact_person, email, contact_number, package_type, amount_promised, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [eventId, company_name, contact_person || null, email || null, contact_number || null, package_type || null, amount_promised || null, finalStatus]
         );
         res.status(201).json({ message: 'Partnership added successfully', partnership_id: result.insertId });
     } catch (err) {
@@ -1379,7 +1379,7 @@ exports.addPartnership = async (req, res) => {
 exports.getPartnershipArchive = async (req, res) => {
     try {
         const [rows] = await db.execute(`
-            SELECT p.partnership_id, p.company_name, p.contact_person, p.email,
+            SELECT p.partnership_id, p.company_name, p.contact_person, p.email, p.contact_number,
                    p.package_type, p.amount_promised, p.status,
                    e.event_name, e.start_date
             FROM partnership p
@@ -1397,15 +1397,15 @@ exports.getPartnershipArchive = async (req, res) => {
 exports.updatePartnership = async (req, res) => {
     try {
         const { id, partnershipId } = req.params;
-        const { company_name, contact_person, email, package_type, amount_promised, status } = req.body;
+        const { company_name, contact_person, email, contact_number, package_type, amount_promised, status } = req.body;
         
         if (!company_name) return res.status(400).json({ message: "Company Name is required." });
 
         await db.execute(
             `UPDATE partnership 
-             SET company_name=?, contact_person=?, email=?, package_type=?, amount_promised=?, status=?
+             SET company_name=?, contact_person=?, email=?, contact_number=?, package_type=?, amount_promised=?, status=?
              WHERE partnership_id = ? AND event_id = ?`,
-             [company_name, contact_person || null, email || null, package_type || null, amount_promised || null, status || 'Paid', partnershipId, id]
+             [company_name, contact_person || null, email || null, contact_number || null, package_type || null, amount_promised || null, status || 'Paid', partnershipId, id]
         );
         res.json({ message: 'Partnership updated' });
     } catch (err) {

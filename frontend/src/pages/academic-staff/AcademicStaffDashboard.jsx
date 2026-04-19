@@ -4,10 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import UserDropdown from '../../components/UserDropdown';
 import { useNotify } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 
 const AcademicStaffDashboard = () => {
     const navigate = useNavigate();
     const notify = useNotify();
+    const { confirm } = useConfirm();
     const { user } = useAuth();
 
     // --- STATE ---
@@ -77,7 +79,8 @@ const AcademicStaffDashboard = () => {
         finally { setSkillMembersLoading(false); }
     };
     const handleDeleteRequest = async (id) => {
-        if (!window.confirm("Are you sure you want to remove this request from the system?")) return;
+        const ok = await confirm("Are you sure you want to remove this request from the system?");
+        if (!ok) return;
         try {
             const res = await fetch(`http://localhost:5000/api/users/requests/${id}`, {
                 method: 'DELETE',
