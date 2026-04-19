@@ -139,8 +139,14 @@ const TaskDetails = () => {
     }
 
     const isAssignee = user?.id === assignment.assigned_user_id;
-    const isOC = user?.role === 'Organizing_Committee' || user?.role === 'oc';
-    const isExec = user?.user_type === 'Executive' || user?.role === 'Executive' || user?.role === 'executive';
+    const isOC = ['Organizing_Committee', 'oc', 'OC'].includes(user?.role) || user?.user_type === 'Organizing_Committee';
+    const isExec = [
+        'Executive', 'executive', 'Executive_Board',
+        'Junior_Treasurer', 'Senior_Treasurer',
+        'President', 'Vice_President'
+    ].includes(user?.role) || [
+        'Executive', 'Executive_Board', 'Junior_Treasurer', 'Senior_Treasurer', 'President'
+    ].includes(user?.user_type);
     const canApprove = (isOC || isExec) && !isAssignee;
     const statusColors = {
         'Assigned': 'bg-gray-100 text-gray-700',
@@ -287,50 +293,65 @@ const TaskDetails = () => {
                         </>
                     )}
 
-                    {/* Submission Details (for reviewers) */}
-                    {canApprove && assignment.assignment_status === 'Submitted' && (
+                    {/* Submission Details (for reviewers) — visible if submitted OR has content to see */}
+                    {canApprove && (assignment.assignment_status === 'Submitted' || assignment.submission_text || assignment.submission_file_url) && (
                         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Submission Details</h3>
-                            
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Submission Details</h3>
+                                {['Verified', 'Rejected'].includes(assignment.assignment_status) && (
+                                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                                        assignment.assignment_status === 'Verified'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-red-100 text-red-700'
+                                    }`}>
+                                        {assignment.assignment_status === 'Verified' ? '✓ Already Approved' : '✗ Changes Requested'}
+                                    </span>
+                                )}
+                            </div>
+
                             {assignment.submission_text && (
                                 <div className="mb-4">
-                                    <p className="text-sm font-medium text-gray-700 mb-2">Submission Notes:</p>
-                                    <p className="bg-gray-50 p-4 rounded text-gray-700 whitespace-pre-wrap text-sm">{assignment.submission_text}</p>
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Member's Note</p>
+                                    <p className="bg-gray-50 p-4 rounded-lg text-gray-700 whitespace-pre-wrap text-sm border border-gray-100">{assignment.submission_text}</p>
                                 </div>
                             )}
 
                             {assignment.submission_file_url && (
                                 <div className="mb-4">
-                                    <p className="text-sm font-medium text-gray-700 mb-2">Submission Link:</p>
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Submitted Document / Link</p>
                                     <a
                                         href={assignment.submission_file_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm bg-blue-50 p-3 rounded border border-blue-200"
+                                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-sm bg-blue-50 p-4 rounded-lg border border-blue-200 hover:bg-blue-100 transition"
                                     >
                                         <Download size={16} />
-                                        Open Submission Link
+                                        Open Submitted Document
                                     </a>
                                 </div>
                             )}
 
-                            {/* Approval Buttons */}
-                            <div className="flex gap-3 pt-4 border-t">
-                                <button
-                                    onClick={() => handleStatusUpdate('Verified')}
-                                    disabled={approvalAction !== null}
-                                    className="flex-1 px-4 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-                                >
-                                    {approvalAction === 'Verified' ? 'Approving...' : '✓ Approve'}
-                                </button>
-                                <button
-                                    onClick={() => handleStatusUpdate('Rejected')}
-                                    disabled={approvalAction !== null}
-                                    className="flex-1 px-4 py-3 border border-red-300 text-red-600 font-medium rounded-lg hover:bg-red-50 transition disabled:opacity-50"
-                                >
-                                    {approvalAction === 'Rejected' ? 'Rejecting...' : 'Request Changes'}
-                                </button>
-                            </div>
+                            {/* Approval Buttons — only when still pending review */}
+                            {assignment.assignment_status === 'Submitted' && (
+                                <div className="flex gap-3 pt-4 border-t">
+                                    <button
+                                        onClick={() => handleStatusUpdate('Verified')}
+                                        disabled={approvalAction !== null}
+                                        className="flex-1 px-4 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle size={16} />
+                                        {approvalAction === 'Verified' ? 'Approving...' : 'Approve Submission'}
+                                    </button>
+                                    <button
+                                        onClick={() => handleStatusUpdate('Rejected')}
+                                        disabled={approvalAction !== null}
+                                        className="flex-1 px-4 py-3 border-2 border-red-300 text-red-600 font-semibold rounded-lg hover:bg-red-50 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        <AlertCircle size={16} />
+                                        {approvalAction === 'Rejected' ? 'Processing...' : 'Request Changes'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 

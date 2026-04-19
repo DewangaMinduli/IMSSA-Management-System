@@ -130,6 +130,34 @@ exports.getEventDetails = async (req, res) => {
             ORDER BY partnership_id DESC
         `, [eventId]);
 
+        // Fetch assignments per task (task_id → first active assignment_id)
+        if (tasks.length > 0) {
+            const taskIds = tasks.map(t => t.id);
+            const placeholders2 = taskIds.map(() => '?').join(',');
+            const [assignments] = await db.execute(`
+                SELECT task_id, assignment_id, status as assignment_status, assigned_user_id
+                FROM task_assignment
+                WHERE task_id IN (${placeholders2})
+                AND status IN ('Assigned', 'In_Progress', 'Submitted', 'Verified', 'Rejected')
+                ORDER BY assignment_id ASC
+            `, taskIds);
+
+            // Map first assignment per task (or all for volunteer)
+            const assignmentsByTask = {};
+            assignments.forEach(a => {
+                if (!assignmentsByTask[a.task_id]) {
+                    assignmentsByTask[a.task_id] = a;
+                }
+            });
+
+            tasks.forEach(task => {
+                const asgn = assignmentsByTask[task.id];
+                task.assignment_id = asgn?.assignment_id || null;
+                task.assignment_status = asgn?.assignment_status || null;
+                task.assigned_user_id = asgn?.assigned_user_id || null;
+            });
+        }
+
         res.json({ event, tasks, committee: ocMembers, timeline, partnerships });
 
     } catch (err) {
@@ -1077,13 +1105,13 @@ exports.addComment = async (req, res) => {
         try {
             [assignmentDetails] = await db.execute(
                 `SELECT 
-                    ta.task_id, ta.assigned_to, ta.event_id,
+                    ta.task_id, ta.assigned_user_id as assigned_to, t.event_id,
                     t.title as task_title,
-                    e.title as event_title,
-                    u.name as commenter_name, u.user_type as commenter_role
+                    e.event_name as event_title,
+                    u.full_name as commenter_name, u.user_type as commenter_role
                  FROM task_assignment ta
                  JOIN task t ON ta.task_id = t.task_id
-                 JOIN event e ON ta.event_id = e.event_id
+                 JOIN event e ON t.event_id = e.event_id
                  JOIN user u ON u.user_id = ?
                  WHERE ta.assignment_id = ?`,
                 [user_id, assignmentId]
@@ -1105,13 +1133,11 @@ exports.addComment = async (req, res) => {
             console.log(`[addComment] Commenter: ${commenter_name} (ID: ${user_id}), Role: ${commenter_role}, isOC: ${isOC}, isExec: ${isExec}, isMember: ${isMember}`);
             console.log(`[addComment] Task: ${task_title}, Event ID: ${event_id}, Assigned to: ${assigned_to}`);
 
-            // Get OC members for this event (from event_team table)
+            // Get OC members for this event (from event_coordinator table)
             const [ocMembers] = await db.execute(
-                `SELECT DISTINCT et.user_id 
-                 FROM event_team et
-                 JOIN user u ON et.user_id = u.user_id
-                 WHERE et.event_id = ? 
-                   AND (u.user_type = 'Organizing_Committee' OR u.user_type = 'oc' OR u.role_name = 'Organizing_Committee')`,
+                `SELECT DISTINCT ec.user_id 
+                 FROM event_coordinator ec
+                 WHERE ec.event_id = ?`,
                 [event_id]
             );
             console.log(`[addComment] Found ${ocMembers.length} OC members for event ${event_id}:`, ocMembers.map(m => m.user_id));

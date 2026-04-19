@@ -5,8 +5,12 @@ const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, 
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const isOC = currentUserRole === 'Organizing_Committee' || currentUserRole === 'oc';
-    const isExec = currentUserRole === 'Executive' || currentUserRole === 'executive' || currentUserRole === 'Executive_Board';
+    const isOC = ['Organizing_Committee', 'oc', 'OC'].includes(currentUserRole) || currentUserRole?.includes('Organizing');
+    const isExec = [
+        'Executive', 'executive', 'Executive_Board',
+        'Junior_Treasurer', 'Senior_Treasurer',
+        'President', 'Vice_President'
+    ].includes(currentUserRole);
     const canComment = isOC || isExec || isAssignee;
 
     const handleSubmitComment = async (e) => {
@@ -84,7 +88,8 @@ const CommentsThread = ({ assignmentId, taskId, currentUserId, currentUserRole, 
                 ) : comments.length === 0 ? (
                     <div className="p-6 bg-gray-50 rounded-lg text-center">
                         <MessageCircle size={32} className="mx-auto text-gray-300 mb-2" />
-                        <p className="text-gray-500">No comments yet. {canComment ? 'Start the conversation!' : 'Waiting for feedback...'}</p>
+                        <p className="text-gray-500 font-medium">{canComment ? 'Start the conversation!' : 'No messages yet.'}</p>
+                        <p className="text-gray-400 text-xs mt-1">Use this thread to ask questions or share updates about this task.</p>
                     </div>
                 ) : (
                     comments.map((comment) => (

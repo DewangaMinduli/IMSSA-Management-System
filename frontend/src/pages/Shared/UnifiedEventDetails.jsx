@@ -5,6 +5,8 @@ import EditEventModal from '../../components/EditEventModal';
 import { useAuth } from '../../context/AuthContext';
 import { Bell, Home } from 'lucide-react';
 import UserDropdown from '../../components/UserDropdown';
+import CommentsThread from '../../components/CommentsThread';
+import { MessageCircle as MessageIcon } from 'lucide-react';
 
 const UnifiedEventDetails = () => {
     const { eventId } = useParams();
@@ -65,6 +67,8 @@ const UnifiedEventDetails = () => {
     // TIMELINE EDIT STATE
     const [editTimelineId, setEditTimelineId] = useState(null);
     const [editTimelineData, setEditTimelineData] = useState({ title: '', date: '' });
+
+    const [showDiscussionTask, setShowDiscussionTask] = useState(null);
 
     const handleSaveTimelineEdit = async (timelineId) => {
         try {
@@ -345,6 +349,13 @@ const UnifiedEventDetails = () => {
         fetchEventDetails();
     }, [eventId, user]);
 
+    // Listen for task approval from TaskDetails page and refresh
+    useEffect(() => {
+        const handleTaskApproved = () => fetchEventDetails();
+        window.addEventListener('taskApproved', handleTaskApproved);
+        return () => window.removeEventListener('taskApproved', handleTaskApproved);
+    }, []);
+
 
 
     const handleDelete = async () => {
@@ -445,6 +456,7 @@ const UnifiedEventDetails = () => {
                             <th className="px-6 py-4">Assigned To</th>
                             <th className="px-6 py-4">Deadline</th>
                             <th className="px-6 py-4">Type</th>
+                            <th className="px-6 py-4">Discussion</th>
                             <th className="px-6 py-4">Actions</th>
                         </tr>
                     </thead>
@@ -474,6 +486,19 @@ const UnifiedEventDetails = () => {
                                     <span className={`px-2 py-1 rounded text-xs font-bold ${task.is_volunteer_opportunity ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                         {task.is_volunteer_opportunity ? 'Volunteer' : 'Assigned'}
                                     </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                    {task.assignment_id ? (
+                                        <button 
+                                            onClick={() => setShowDiscussionTask(task)}
+                                            className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-all hover:bg-indigo-100"
+                                        >
+                                            <MessageIcon size={14} />
+                                            Chat
+                                        </button>
+                                    ) : (
+                                        <span className="text-gray-400 text-xs italic">No assignment</span>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4">
                                     {canManage ? (
@@ -1204,6 +1229,36 @@ const UnifiedEventDetails = () => {
                 event={event}
                 onSuccess={handleEditSuccess}
             />
+
+            {/* DISCUSSION MODAL */}
+            {showDiscussionTask && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100">
+                        <div className="p-5 border-b flex justify-between items-center bg-gray-50/50">
+                            <div>
+                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <MessageIcon size={20} className="text-indigo-600" />
+                                    Task Discussion
+                                </h3>
+                                <p className="text-sm text-gray-500 font-medium">Topic: <span className="text-indigo-600 font-bold">{showDiscussionTask.title}</span></p>
+                            </div>
+                            <button 
+                                onClick={() => setShowDiscussionTask(null)}
+                                className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-2">
+                            <CommentsThread 
+                                assignmentId={showDiscussionTask.assignment_id}
+                                currentUserRole={user?.role || user?.user_type}
+                                isAssignee={user?.id === showDiscussionTask.assigned_user_id}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );
