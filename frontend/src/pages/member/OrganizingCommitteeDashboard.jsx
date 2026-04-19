@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotify } from '../../context/NotificationContext';
 import UserDropdown from '../../components/UserDropdown';
 import VolunteerTaskModal from '../../components/VolunteerTaskModal';
+import { formatDate } from '../../utils/dateFormatter';
 
 const OrganizingCommitteeDashboard = () => {
     const navigate = useNavigate();
@@ -104,7 +105,7 @@ const OrganizingCommitteeDashboard = () => {
     }, [user]);
 
     const otherEvents = allEvents.filter(e => !events.find(me => me.event_id === e.event_id));
-    const notifications = []; // Pending Phase 2
+    const notifications = [];
 
     // Apply for volunteer opportunity
     const handleApplyVolunteer = async (task) => {
@@ -221,12 +222,12 @@ const OrganizingCommitteeDashboard = () => {
                                     </div>
                                     <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
                                 </div>
-                                <div className="space-y-3 mb-6">
-                                    <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                 <div className="space-y-3 mb-6">
+                                    <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{formatDate(event.start_date)}</span></div>
                                     <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
                                     <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
                                 </div>
-                                <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
+                                <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold hover:text-blue-700 transition-colors">
                                     <span>View Details</span><ArrowRight size={14} />
                                 </div>
                             </div>
@@ -370,8 +371,8 @@ const OrganizingCommitteeDashboard = () => {
                                     </div>
                                     <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
                                 </div>
-                                <div className="space-y-3 mb-6">
-                                    <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                 <div className="space-y-3 mb-6">
+                                    <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{formatDate(event.start_date)}</span></div>
                                     <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
                                     <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Total Tasks</span></div>
                                 </div>

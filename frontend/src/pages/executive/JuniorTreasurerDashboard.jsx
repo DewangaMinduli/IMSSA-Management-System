@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotify } from '../../context/NotificationContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { formatDate, formatRelativeTime } from '../../utils/dateFormatter';
 import {
     DollarSign, TrendingUp, TrendingDown, Calendar,
     FileText, Plus, Upload, CreditCard, ChevronRight, AlertTriangle,
@@ -204,8 +205,8 @@ const JuniorTreasurerDashboard = () => {
     };
 
     const handleEdit = (tx) => {
-        if (tx.status !== 'Pending') {
-            notify("This transaction has been finalized (Approved/Rejected) and cannot be edited.", "error");
+        if (tx.status === 'Approved') {
+            notify("This transaction has been approved and audited, and cannot be edited.", "error");
             return;
         }
         setForm({
@@ -224,8 +225,8 @@ const JuniorTreasurerDashboard = () => {
     };
 
     const handleDelete = async (tx) => {
-        if (tx.status !== 'Pending') {
-            notify("This transaction has been finalized (Approved/Rejected) and cannot be deleted.", "error");
+        if (tx.status === 'Approved') {
+            notify("This transaction has been approved and audited, and cannot be deleted.", "error");
             return;
         }
         const ok = await confirm("Are you sure you want to delete this transaction? This action will permanently remove the record and adjust the corresponding account balance.");
@@ -462,7 +463,7 @@ const JuniorTreasurerDashboard = () => {
                                             </tr>
                                         ) : data.transactions.map(tx => (
                                             <tr key={tx.transaction_id} className="hover:bg-gray-50/50 transition-colors group">
-                                                <td className="p-4 text-gray-500 text-xs">{new Date(tx.transaction_date).toLocaleDateString()}</td>
+                                                <td className="p-4 text-gray-500 text-xs">{formatDate(tx.transaction_date)}</td>
                                                 <td className="p-4">
                                                     <div className="font-bold text-gray-800">{tx.description}</div>
                                                     <div className="text-[10px] text-blue-500 font-medium uppercase mt-0.5">{tx.event_name || 'General Association'} • {tx.account_name}</div>
@@ -484,7 +485,7 @@ const JuniorTreasurerDashboard = () => {
                                                             Reason: {tx.missing_proof_reason}
                                                         </div>
                                                     )}
-                                                    {tx.status === 'Pending' && (
+                                                    {tx.status !== 'Approved' && (
                                                         <div className="flex justify-end gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-all">
                                                             <button 
                                                                 onClick={() => handleEdit(tx)}
@@ -685,7 +686,7 @@ const JuniorTreasurerDashboard = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {new Date(op.due).toLocaleDateString()}</div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {formatDate(op.due)}</div>
                                 <div className="mb-4"><span className={`px-2 py-1 rounded text-[10px] font-bold ${op.color}`}>Event: {op.event}</span></div>
                                 <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
                                     <span className="text-xs font-medium">Click to View</span><ChevronRight size={14} />
@@ -717,7 +718,7 @@ const JuniorTreasurerDashboard = () => {
                                 <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
                             </div>
                             <div className="space-y-3 mb-6">
-                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
+                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{formatDate(event.start_date)}</span></div>
                                 <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
                                 <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
                             </div>

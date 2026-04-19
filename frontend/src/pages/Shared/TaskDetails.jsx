@@ -8,6 +8,7 @@ import {
     ArrowLeft, CheckCircle, AlertCircle, Download, Clock,
     User, MessageSquare, FileText, Loader
 } from 'lucide-react';
+import { formatDateFull } from '../../utils/dateFormatter';
 
 const TaskDetails = () => {
     const navigate = useNavigate();
@@ -152,7 +153,7 @@ const TaskDetails = () => {
                     </span>
                     <span className="text-gray-600 flex items-center gap-1">
                         <Clock size={16} />
-                        Due: {new Date(assignment.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        Due: {formatDateFull(assignment.due)}
                     </span>
                     <span className="text-gray-600 flex items-center gap-1">
                         <User size={16} />

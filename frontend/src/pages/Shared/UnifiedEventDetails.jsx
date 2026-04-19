@@ -9,6 +9,7 @@ import { Bell, Home } from 'lucide-react';
 import UserDropdown from '../../components/UserDropdown';
 import CommentsThread from '../../components/CommentsThread';
 import { MessageCircle as MessageIcon } from 'lucide-react';
+import { formatDate } from '../../utils/dateFormatter';
 
 const UnifiedEventDetails = () => {
     const { eventId } = useParams();
@@ -46,10 +47,7 @@ const UnifiedEventDetails = () => {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
-    // PARTNERSHIPS STATE
-    const [partnerships, setPartnerships] = useState([]); // Kept for modal inputs or we can just use newPartner 
-    // Actually we will map directly over data?.partnerships
-
+    const [partnerships, setPartnerships] = useState([]);
     const [showPartnerModal, setShowPartnerModal] = useState(false);
     const [newPartner, setNewPartner] = useState({
         company_name: '',
@@ -61,7 +59,6 @@ const UnifiedEventDetails = () => {
         status: 'Paid'
     });
     
-    // PARTNERSHIP ARCHIVE STATE
     const [showArchiveModal, setShowArchiveModal] = useState(false);
     const [archiveData, setArchiveData] = useState([]);
     const [isLoadingArchive, setIsLoadingArchive] = useState(false);
@@ -365,19 +362,18 @@ const UnifiedEventDetails = () => {
         console.log("Approve task", taskId);
     };
 
-    // --- SERVER STATE ---
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Management roles: Executive Board (3), Junior Treasurer (4), President (5)
+    // User Access Controls
     const isExecutive = user?.hierarchy_level >= 3 && user?.hierarchy_level <= 5;
     const isPresident = user?.hierarchy_level === 5;
     const isStaff = user?.hierarchy_level >= 6 || user?.user_type === 'Academic_Staff';
     
     const [isOC, setIsOC] = useState(false);
-    // Only Executive Board (JT/ST/Pres) can manage/edit events. 
-    // OC members, Members, and Academic Staff are now READ-ONLY.
-    const canManage = isExecutive && !isStaff;
+    // Executive Board (JT/ST/Pres) and the event's OC members can manage/edit events. 
+    // Other members and Academic Staff are READ-ONLY.
+    const canManage = (isExecutive || isOC) && !isStaff;
     const isReadOnly = !canManage;
 
     const [editingId, setEditingId] = useState(null);
@@ -486,14 +482,14 @@ const UnifiedEventDetails = () => {
                         <span className="font-bold text-teal-900/60 block mb-2 uppercase tracking-wide text-xs">Start Date</span>
                         <span className="text-gray-900 font-medium flex items-center gap-2">
                             <span className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600"><Calendar size={14}/></span>
-                            {event.start_date ? new Date(event.start_date).toLocaleDateString() : 'TBA'}
+                             {event.start_date ? formatDate(event.start_date) : 'TBA'}
                         </span>
                     </div>
                     <div className="bg-white/60 p-4 rounded-lg border border-white/80 shadow-sm backdrop-blur-sm">
                         <span className="font-bold text-orange-900/60 block mb-2 uppercase tracking-wide text-xs">End Date</span>
                         <span className="text-gray-900 font-medium flex items-center gap-2">
                             <span className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600"><Calendar size={14}/></span>
-                            {event.end_date ? new Date(event.end_date).toLocaleDateString() : 'TBA'}
+                             {event.end_date ? formatDate(event.end_date) : 'TBA'}
                         </span>
                     </div>
                 </div>
@@ -560,7 +556,7 @@ const UnifiedEventDetails = () => {
                                         )}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-gray-500">{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'None'}</td>
+                                 <td className="px-6 py-4 text-gray-500">{task.deadline ? formatDate(task.deadline) : 'None'}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${task.is_volunteer_opportunity ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                         {task.is_volunteer_opportunity ? 'Volunteer' : 'Assigned'}
@@ -949,7 +945,7 @@ const UnifiedEventDetails = () => {
                                     <div>
                                         <h4 className="font-bold text-gray-900 text-sm">{item.title}</h4>
                                         <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                            <Clock size={12} /> {new Date(item.date).toLocaleDateString()}
+                                            <Clock size={12} /> {formatDate(item.date)}
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
@@ -987,7 +983,7 @@ const UnifiedEventDetails = () => {
                                 <span className={`px-3 py-1 rounded text-xs font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
                             </div>
                             <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <Calendar size={14} /> {new Date(event.start_date).toLocaleDateString()} - {event.end_date ? new Date(event.end_date).toLocaleDateString() : 'TBD'}
+                                <Calendar size={14} /> {formatDate(event.start_date)} - {event.end_date ? formatDate(event.end_date) : 'TBD'}
                             </div>
                         </div>
                     </div>
@@ -1008,7 +1004,7 @@ const UnifiedEventDetails = () => {
                 <div className="border-b border-gray-200 mb-8">
                     <div className="flex gap-8">
                         {['Overview', 'Tasks', 'OC', 'Timeline', 'Partnerships']
-                          .filter(tab => tab !== 'Partnerships' || isExecutive)
+                          .filter(tab => tab !== 'Partnerships' || isExecutive || isOC)
                           .map(tab => (
                             <button
                                 key={tab}

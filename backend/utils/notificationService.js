@@ -23,9 +23,9 @@ exports.createNotification = async (userId, title, message, type = 'SYSTEM', rel
 // Get notifications for user
 exports.getNotifications = async (userId, limit = 20, unreadOnly = false) => {
     try {
-        // Convert parameters to integers
         const userIdInt = parseInt(userId, 10);
-        const limitInt = parseInt(limit, 10);
+        // Sanitize limit to prevent SQL injection (must be a positive integer)
+        const limitInt = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
 
         if (isNaN(userIdInt)) {
             console.error('[NotificationService] Invalid userId:', userId);
@@ -35,24 +35,24 @@ exports.getNotifications = async (userId, limit = 20, unreadOnly = false) => {
         let query = `
             SELECT notification_id, title, message, type, is_read, created_at
             FROM notification
-            WHERE user_id = ?
+            WHERE user_id = ${userIdInt}
         `;
-        const params = [userIdInt];
 
         if (unreadOnly) {
             query += ` AND is_read = 0`;
         }
 
-        query += ` ORDER BY created_at DESC LIMIT ?`;
-        params.push(limitInt);
+        // Use inline LIMIT (not a bound param) to avoid mysql2 prepared-stmt ER_WRONG_ARGUMENTS
+        query += ` ORDER BY created_at DESC LIMIT ${limitInt}`;
 
-        const [notifications] = await db.execute(query, params);
+        const [notifications] = await db.query(query);
         return notifications;
     } catch (err) {
         console.error('Error fetching notifications:', err);
         return [];
     }
 };
+
 
 // Mark notification as read
 exports.markAsRead = async (notificationId) => {

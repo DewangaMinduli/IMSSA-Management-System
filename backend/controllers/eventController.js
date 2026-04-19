@@ -660,16 +660,16 @@ exports.updateTaskAssignmentStatus = async (req, res) => {
                     }
                 }
 
-                // Update Parent Task Status to Completed
+                // Update Parent Task Status to Verified
                 await connection.execute(
-                    `UPDATE task SET status = 'Completed' WHERE task_id = ?`,
+                    `UPDATE task SET status = 'Verified' WHERE task_id = ?`,
                     [task_id]
                 );
 
                 // Notify Member
                 await connection.execute(
                     `INSERT INTO notification (user_id, title, message, type) 
-                     VALUES (?, 'Task Approved! ✓', ?, 'TASK')`,
+                     VALUES (?, 'Task Approved', ?, 'TASK')`,
                     [assigned_user_id, `Your work for "${title}" has been approved. Skills points awarded!`]
                 );
 
@@ -719,7 +719,7 @@ exports.updateTaskStatus = async (req, res) => {
         if (!status) return res.status(400).json({ message: "Status is required." });
 
         // Normalize status
-        if (status === 'Approved') status = 'Completed';
+        if (status === 'Approved' || status === 'Completed') status = 'Verified';
         if (status === 'Declined') status = 'Pending';
 
         connection = await db.getConnection();
@@ -736,8 +736,8 @@ exports.updateTaskStatus = async (req, res) => {
             return res.status(404).json({ message: "Task not found." });
         }
 
-        // 2. If marking as Completed, also verify any 'Submitted' assignments
-        if (status === 'Completed') {
+        // 2. If marking as Verified, also verify any 'Submitted' assignments
+        if (status === 'Verified') {
             // Find all 'Submitted' or 'In_Progress' assignments for this task
             const [assignments] = await connection.execute(
                 `SELECT assignment_id FROM task_assignment WHERE task_id = ? AND status IN ('Submitted', 'In_Progress', 'Assigned')`,

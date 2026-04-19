@@ -187,11 +187,12 @@ exports.updateTransaction = async (req, res) => {
             return res.status(400).json({ message: 'Insufficient funds for this update' });
         }
 
-        // 4. Update Transaction
+        // 4. Update Transaction (Reset status to Pending for re-audit)
         await connection.execute(
             `UPDATE transaction SET 
             transaction_date = ?, description = ?, transaction_type = ?, amount = ?, 
-            account_id = ?, event_id = ?, bill_proof_url = ?, missing_proof_reason = ? 
+            account_id = ?, event_id = ?, bill_proof_url = ?, missing_proof_reason = ?,
+            status = 'Pending'
             WHERE transaction_id = ?`,
             [date, description, type, amount, account_id, event_id || null, proof_url || null, notes || null, id]
         );

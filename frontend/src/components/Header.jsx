@@ -3,6 +3,7 @@ import { Bell, Home, X, Loader } from 'lucide-react';
 import UserDropdown from './UserDropdown';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { formatRelativeTime } from '../utils/dateFormatter';
 
 const Header = () => {
     const { user } = useAuth();
@@ -96,10 +97,10 @@ const Header = () => {
         if (user.role_name === 'Academic_Staff' || user.role_name === 'Academic Staff') {
             return <div className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700">Academic Staff</div>;
         }
-        if (user.role_name === 'Organizing_Committee' || user.role_name === 'OC') {
+        if (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee' || user.role_name === 'OC') {
             return <div className="bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700">Organizing Committee</div>;
         }
-        if (user.role_name === 'President' || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer' || user.hierarchy_level >= 4) {
+        if (user.role_name === 'President' || user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer' || user.role_name === 'Executive Board' || user.hierarchy_level >= 4) {
             return <div className="bg-blue-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700">{user.role_name}</div>;
         }
         return <div className="bg-gray-50 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700">Member</div>;
@@ -153,7 +154,7 @@ const Header = () => {
                                                 {notification.message}
                                             </p>
                                             <p className="text-[10px] text-gray-400 mt-1">
-                                                {new Date(notification.created_at).toLocaleString()}
+                                                {formatRelativeTime(notification.created_at)}
                                             </p>
                                         </div>
                                     ))

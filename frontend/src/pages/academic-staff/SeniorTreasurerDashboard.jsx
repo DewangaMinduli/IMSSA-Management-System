@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useNotify } from '../../context/NotificationContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import BudgetReportModal from '../../components/BudgetReportModal';
+import { formatDate } from '../../utils/dateFormatter';
 
 const SeniorTreasurerDashboard = () => {
     const navigate = useNavigate();
@@ -98,11 +99,12 @@ const SeniorTreasurerDashboard = () => {
             ]);
 
             if (resAccounts.ok && resTransactions.ok) {
-                const accountsData = await resAccounts.json();
-                const transactionsData = await resTransactions.json();
+                const accData = await resAccounts.json();
+                const txData = await resTransactions.json();
                 setFinanceData({
-                    accounts: accountsData.accounts,
-                    transactions: transactionsData
+                    accounts: accData.accounts || [],
+                    transactions: txData || [], // transactions are the direct array from this endpoint
+                    events: accData.events || []
                 });
             }
 
@@ -114,26 +116,19 @@ const SeniorTreasurerDashboard = () => {
             if (resRequests.ok) setRecRequests(await resRequests.json());
 
         } catch (err) {
-            console.error("Error fetching data", err);
+            console.error('Error fetching dashboard data', err);
         } finally {
             setLoading(false);
         }
     };
 
     const handleSearch = async () => {
-        if (!searchQuery.trim()) {
-            setStudents([]);
-            setSelectedAnalytics(null);
-            return;
-        }
+        if (!searchQuery.trim()) return;
         try {
             const res = await fetch(`http://localhost:5000/api/users/search?q=${searchQuery}`);
-            if (res.ok) {
-                setStudents(await res.json());
-                setSelectedAnalytics(null);
-            }
+            if (res.ok) setStudents(await res.json());
         } catch (err) {
-            console.error("Search error", err);
+            console.error('Search error', err);
         }
     };
 
@@ -249,154 +244,230 @@ const SeniorTreasurerDashboard = () => {
                                 {user?.name?.charAt(0) || 'U'}
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900">{user?.name || 'User'}</h3>
-                                <p className="text-sm text-gray-500">{user?.role_name || user?.user_type} • University of Kelaniya</p>
-                                <p className="text-xs text-teal-600 font-medium mt-1">Academic Staff Member</p>
+                                <h3 className="text-xl font-bold text-gray-900">{user?.name || user?.full_name || 'Academic Staff'}</h3>
+                                <p className="text-sm text-gray-500">{user?.role_name} • University of Kelaniya</p>
                             </div>
+                        </div>
+                        <div className="bg-teal-50 px-4 py-2 rounded-lg text-teal-700 text-xs font-bold whitespace-nowrap">
+                            Senior Audit Executive
                         </div>
                     </div>
                 </Link>
 
-                {/* 1. FINANCIAL OVERVIEW */}
-                <section id="financial-overview" className="mb-10 scroll-mt-24">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Financial Overview</h2>
+                {/* 1. FINANCIAL SUMMARY SECTION */}
+                <section id="audit-summary" className="mb-12">
+                    <div className="flex justify-between items-end mb-6">
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-800">Account Oversight</h2>
+                            <p className="text-xs text-gray-400 mt-0.5 uppercase tracking-tighter font-bold">Real-time asset tracking</p>
+                        </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* Total Net Worth Card (Matched with JT) */}
-                        <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-5 rounded-xl shadow-md text-white border-0 flex flex-col justify-between relative overflow-hidden h-full">
-                            <TrendingUp className="absolute -right-2 -bottom-2 text-white/10 opacity-20" size={100} />
+                        {/* Total Net Worth Card */}
+                        <div className="bg-teal-700 p-6 rounded-2xl shadow-xl shadow-teal-100 text-white relative overflow-hidden group">
+                            <TrendingUp className="absolute -right-2 -bottom-2 text-white/10 group-hover:scale-110 transition-transform" size={100} />
                             <div>
-                                <p className="text-[10px] uppercase font-bold tracking-widest text-blue-100/80">Total Net Worth</p>
-                                <h3 className="text-xl font-black mt-2">
-                                    Rs. {financeData.accounts.reduce((sum, acc) => sum + parseFloat(acc.current_balance || 0), 0).toLocaleString()}
+                                <p className="text-[10px] uppercase font-bold tracking-widest text-teal-100/60">Consolidated Fund</p>
+                                <h3 className="text-2xl font-black mt-2 tracking-tight">
+                                    Rs. {(financeData.accounts || []).reduce((sum, acc) => sum + parseFloat(acc.current_balance || 0), 0).toLocaleString()}
                                 </h3>
+                                <div className="mt-4 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 bg-teal-300 rounded-full animate-pulse"></span>
+                                    <span className="text-[10px] font-bold text-teal-100 uppercase tracking-widest">Audited Reserve</span>
+                                </div>
                             </div>
                         </div>
 
-                        {financeData.accounts.map(acc => (
-                            <div key={acc.account_id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group h-full transition-all hover:shadow-md">
-                                <div className="relative z-10">
+                        {(financeData.accounts || []).map(acc => (
+                            <div key={acc.account_id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+                                <div>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-teal-50 transition-colors">
+                                            <CreditCard size={18} className="text-teal-600" />
+                                        </div>
+                                    </div>
                                     <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">{acc.account_name}</p>
-                                    <h3 className={`text-xl font-bold mt-1.5 ${Number(acc.current_balance) < 0 ? 'text-red-500' : 'text-gray-800'}`}>
+                                    <h3 className="text-xl font-bold mt-1 text-gray-900 tracking-tight">
                                         Rs. {Number(acc.current_balance).toLocaleString()}
                                     </h3>
-                                </div>
-                                <div className="mt-4 flex items-center justify-between">
-                                    <span className="text-[8px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded">Active Account</span>
-                                    <ArrowRight size={14} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
                                 </div>
                             </div>
                         ))}
                     </div>
                 </section>
 
-                {/* 2. PENDING ACTION SUMMARY */}
-                <section id="pending-approvals" className="mb-10 scroll-mt-24">
-                    <div className="flex items-center gap-2 mb-4">
-                        <h2 className="text-lg font-bold text-gray-800">Pending Financial Approvals</h2>
-                        {financeData.transactions.filter(t => t.status === 'Pending').length > 0 && (
-                            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                                {financeData.transactions.filter(t => t.status === 'Pending').length} ACTION REQUIRED
-                            </span>
-                        )}
+                {/* 2. ANALYTICS CHART */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+                    <div className="lg:col-span-2 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="flex justify-between items-center mb-8">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800">Fiscal Activity</h3>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Transaction flow analysis</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
+                                    <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
+                                    <span className="text-[10px] font-bold text-teal-700">Income</span>
+                                </div>
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                    <span className="text-[10px] font-bold text-red-700">Expenses</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={financeData.transactions.slice(0, 10).reverse()}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis 
+                                        dataKey="transaction_date" 
+                                        tickFormatter={(date) => formatDate(date)}
+                                        tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}}
+                                        axisLine={false}
+                                        tickLine={false}
+                                    />
+                                    <YAxis hide />
+                                    <Tooltip 
+                                        cursor={{fill: '#f8fafc'}}
+                                        content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const d = payload[0].payload;
+                                                return (
+                                                    <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-xl">
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.description}</p>
+                                                        <p className={`text-sm font-black ${d.transaction_type === 'Income' ? 'text-teal-600' : 'text-red-500'}`}>
+                                                            Rs. {Number(d.amount).toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    />
+                                    <Bar 
+                                        dataKey="amount" 
+                                        radius={[4, 4, 4, 4]}
+                                        barSize={32}
+                                        fill={({ payload }) => payload.transaction_type === 'Income' ? '#0d9488' : '#ef4444'} 
+                                    />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                    
-                    {financeData.transactions.filter(t => t.status === 'Pending').length === 0 ? (
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center text-gray-500 text-sm">
-                            <div className="flex flex-col items-center gap-2">
-                                <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center text-green-500">
-                                    <TrendingUp size={24} />
-                                </div>
-                                <p>All transactions have been reviewed. No pending approvals.</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-yellow-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-600">
-                                    <Clock size={24} />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-800">Review Required</p>
-                                    <p className="text-xs text-gray-500">
-                                        You have <strong>{financeData.transactions.filter(t => t.status === 'Pending').length}</strong> transactions totaling 
-                                        <strong> Rs. {financeData.transactions.filter(t => t.status === 'Pending').reduce((sum, t) => sum + parseFloat(t.amount), 0).toLocaleString()} </strong>
-                                        awaiting your verification.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </section>
 
-                {/* 3. TRANSACTIONS TABLE */}
-                <section id="transactions" className="scroll-mt-24 mb-10">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg font-bold text-gray-800">Transactions</h2>
-                        <div className="flex gap-3">
-                            {/* 1. Filter Type Dropdown */}
-                            <select
-                                className="text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg outline-none border-none"
-                                value={filterType}
-                                onChange={(e) => {
-                                    setFilterType(e.target.value);
-                                    setFilterValue(''); // Reset value when type changes
-                                }}
+                    {/* Pending Actions Quickview */}
+                    <div className="bg-gray-900 rounded-2xl p-8 text-white relative overflow-hidden flex flex-col justify-between">
+                        <div className="relative z-10">
+                            <h3 className="text-lg font-bold">Audit Requirements</h3>
+                            <p className="text-[10px] text-teal-400/80 font-bold uppercase tracking-widest mt-1">Status Overview</p>
+                            
+                            <div className="mt-10 space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-2 bg-teal-500/20 rounded-lg text-teal-400"><Clock size={18} /></div>
+                                        <span className="text-sm font-medium text-gray-300">Awaiting Verification</span>
+                                    </div>
+                                    <span className="text-lg font-black">{financeData.transactions.filter(t => t.status === 'Pending').length}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><FileText size={18} /></div>
+                                        <span className="text-sm font-medium text-gray-300">Letter Requests</span>
+                                    </div>
+                                    <span className="text-lg font-black">{recRequests.filter(r => r.status === 'Pending').length}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-10 pt-6 border-t border-white/5 relative z-10">
+                            <button 
+                                onClick={() => document.getElementById('audit-queue').scrollIntoView({ behavior: 'smooth' })}
+                                className="w-full bg-white text-gray-900 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
                             >
-                                <option value="All">All Transactions</option>
-                                <option value="Event">By Event</option>
-                                <option value="Account">By Account</option>
-                            </select>
+                                Open Review Queue <ArrowRight size={14} />
+                            </button>
+                        </div>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                    </div>
+                </div>
 
-                            {/* 2. Specific item Dropdown (Changes based on selection 1) */}
-                            {filterType !== 'All' && (
-                                <select
-                                    className="text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg outline-none border-none"
-                                    value={filterValue}
-                                    onChange={(e) => setFilterValue(e.target.value)}
-                                >
-                                    <option value="">Select Option</option>
-                                    {filterType === 'Event' && uniqueEvents.map(evt => (
-                                        <option key={evt} value={evt}>{evt}</option>
-                                    ))}
-                                    {filterType === 'Account' && uniqueAccounts.map(acc => (
-                                        <option key={acc} value={acc}>{acc}</option>
-                                    ))}
-                                </select>
+                {/* 3. TRANSACTION AUDIT QUEUE */}
+                <section id="audit-queue" className="mb-16 scroll-mt-24">
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+                                <span className="w-1.5 h-6 bg-teal-600 rounded-full"></span> Transaction Audit Trail
+                            </h2>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 px-4">Financial Accountability Feed</p>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 bg-white p-1.5 rounded-xl border border-gray-100 shadow-sm">
+                            <select 
+                                onChange={(e) => {
+                                    setFilterType('Event');
+                                    setFilterValue(e.target.value);
+                                }}
+                                className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 outline-none border-0 text-gray-500 cursor-pointer"
+                            >
+                                <option value="">Filter by Event</option>
+                                {uniqueEvents.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+                            </select>
+                            <div className="w-px h-4 bg-gray-100"></div>
+                            <select 
+                                onChange={(e) => {
+                                    setFilterType('Account');
+                                    setFilterValue(e.target.value);
+                                }}
+                                className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 outline-none border-0 text-gray-500 cursor-pointer"
+                            >
+                                <option value="">Filter by Account</option>
+                                {uniqueAccounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                            </select>
+                            {filterValue && (
+                                <button onClick={() => {setFilterType('All'); setFilterValue('');}} className="p-1 px-3 text-[10px] font-black text-red-500 uppercase">Reset</button>
                             )}
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 max-h-[600px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-gray-200">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-500 font-bold text-[10px] uppercase tracking-widest border-b border-gray-100">
-                                 <tr>
-                                     <th className="px-6 py-4">Audit Date</th>
-                                     <th className="px-6 py-4">Transaction / Event</th>
-                                     <th className="px-6 py-4">Fund Source</th>
-                                     <th className="px-6 py-4">Amount</th>
-                                     <th className="px-6 py-4">Evidence</th>
-                                     <th className="px-6 py-4">Status</th>
-                                     <th className="px-6 py-4 text-right">Review Actions</th>
-                                 </tr>
+
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden overflow-x-auto">
+                        <table className="w-full text-left min-w-[900px]">
+                            <thead>
+                                <tr className="bg-gray-50/50 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100">
+                                    <th className="px-6 py-5">Transaction Details</th>
+                                    <th className="px-6 py-5">Source & Origin</th>
+                                    <th className="px-6 py-5">Verification Assets</th>
+                                    <th className="px-6 py-5">Audit Status</th>
+                                    <th className="px-6 py-5 text-right">Actions</th>
+                                </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {filteredTransactions.map((t) => (
-                                    <tr key={t.transaction_id} className="hover:bg-gray-50 transition-all group">
-                                        <td className="px-6 py-4 text-gray-400 font-bold text-xs">{new Date(t.transaction_date).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-gray-700">{t.description}</div>
-                                            <div className="text-[10px] text-teal-600 font-bold uppercase tracking-widest mt-0.5">{t.event_name || 'General Association'}</div>
+                            <tbody className="divide-y divide-gray-50 text-sm">
+                                {filteredTransactions.map(t => (
+                                    <tr key={t.transaction_id} className="hover:bg-gray-50/30 transition-colors group">
+                                        <td className="px-6 py-6">
+                                            <div className="font-black text-gray-900">{t.description}</div>
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                <span className={`text-xs font-black ${t.transaction_type === 'Income' ? 'text-teal-600' : 'text-red-500'}`}>
+                                                    {t.transaction_type === 'Income' ? '+' : '-'} Rs. {Number(t.amount).toLocaleString()}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-gray-300">•</span>
+                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{formatDate(t.transaction_date)}</span>
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-gray-500 text-xs font-medium">{t.account_name}</td>
-                                        <td className={`px-6 py-4 font-black ${t.transaction_type === 'Expense' ? 'text-red-500' : 'text-teal-600'}`}>
-                                            {t.transaction_type === 'Expense' ? `- Rs. ${Number(t.amount).toLocaleString()}` : `+ Rs. ${Number(t.amount).toLocaleString()}`}
+                                        <td className="px-6 py-6">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-gray-700">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                                {t.event_name || 'General Operations'}
+                                            </div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1 px-3.5">
+                                                {t.account_name}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-6">
                                             <button 
                                                 onClick={() => setSelectedEvidence(t)}
-                                                className="group/btn flex flex-col gap-1.5 text-left hover:bg-teal-50 p-2 rounded-lg transition-all border border-transparent hover:border-teal-100"
+                                                className="group/btn relative flex flex-col gap-1.5"
                                             >
                                                 {t.bill_proof_url ? (
-                                                    <span className="text-teal-600 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest">
+                                                    <span className="bg-teal-50 text-teal-700 text-[9px] font-black uppercase px-3 py-1 rounded-md border border-teal-100 flex items-center gap-2 group-hover/btn:bg-teal-600 group-hover/btn:text-white transition-all">
                                                         <Search size={12} /> View Proof
                                                     </span>
                                                 ) : (
@@ -606,21 +677,21 @@ const SeniorTreasurerDashboard = () => {
                         </div>
                     )}
 
-                    {/* Members with Selected Skill */}
+                    {/* Member List for Selected Skill */}
                     {selectedSkill && (
-                        <div className="bg-white rounded-xl shadow-sm border border-teal-100 overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-sm border border-teal-100 overflow-hidden animate-fade-in">
                             <div className="px-6 py-4 bg-teal-50 border-b border-teal-100 flex justify-between items-center">
                                 <h3 className="font-bold text-teal-800 text-sm">Members skilled in: <span className="text-teal-600">{selectedSkill.name}</span></h3>
                                 <button onClick={() => { setSelectedSkill(null); setSkillMembers([]); }} className="text-teal-400 hover:text-teal-700"><X size={16} /></button>
                             </div>
                             {skillMembersLoading ? (
-                                <p className="text-center text-gray-400 text-sm py-8">Loading members...</p>
+                                <p className="text-center text-gray-400 text-sm py-8 italic animate-pulse">Scanning membership database...</p>
                             ) : skillMembers.length === 0 ? (
-                                <p className="text-center text-gray-500 italic text-sm py-8">No members found in this area.</p>
+                                <p className="text-center text-gray-500 italic text-sm py-8">No formal expertise recorded in this area yet.</p>
                             ) : (
                                 <div className="divide-y divide-gray-50">
-                                    {skillMembers.map((m, idx) => (
-                                        <div key={m.user_id} className="flex items-center justify-between px-6 py-3 hover:bg-gray-50">
+                                    {skillMembers.map((m) => (
+                                        <div key={m.user_id} className="flex items-center justify-between px-6 py-3 hover:bg-gray-50 transition-colors">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold text-sm">
                                                     {m.full_name?.charAt(0)}
@@ -641,32 +712,42 @@ const SeniorTreasurerDashboard = () => {
 
                 {/* Recommendation Requests */}
                 <section id="recommendation-requests" className="mb-10 scroll-mt-24">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Recommendation Letter Requests</h2>
+                    <h2 className="text-lg font-bold text-gray-800 mb-4 tracking-tight">Recommendation Letter Requests</h2>
                     <div className="space-y-4">
                         {recRequests.length === 0 ? (
-                            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center text-gray-500 text-sm">No pending requests.</div>
+                            <div className="bg-white p-10 rounded-2xl shadow-sm border border-gray-100 text-center text-gray-400 text-sm italic">
+                                No pending recommendation requests assigned to you.
+                            </div>
                         ) : recRequests.map(req => (
-                            <div key={req.request_id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                            <div key={req.request_id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:shadow-md transition-shadow">
+                                <div className="flex items-center gap-5">
+                                    <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl shadow-inner uppercase">
                                         {req.full_name?.charAt(0) || 'S'}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900">{req.full_name}</h3>
-                                        <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                                            <span>{req.student_number}</span><span>•</span><span>Requested on {req.requested_at ? new Date(req.requested_at).toLocaleDateString() : 'N/A'}</span>
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${req.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        <h3 className="font-black text-gray-900 tracking-tight">{req.full_name}</h3>
+                                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400 mt-1 font-bold">
+                                            <span className="bg-gray-100 px-2 py-0.5 rounded uppercase tracking-widest">{req.student_number}</span>
+                                            <span className="flex items-center gap-1"><Clock size={12} /> {formatDate(req.requested_at)}</span>
+                                            <span className={`px-2 py-0.5 rounded uppercase tracking-widest ${req.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                                                 {req.status}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex gap-3 w-full md:w-auto">
                                     <button 
                                         onClick={() => navigate(`/academic-staff/recommendation-letter/${req.request_id}`)}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
+                                        className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                                     >
-                                        Generate Letter
+                                        <Plus size={14} /> Generate Letter
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDeleteRequest(req.request_id)}
+                                        className="p-3 bg-red-50 text-red-500 hover:bg-red-100 rounded-xl transition-colors"
+                                        title="Delete Request"
+                                    >
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
                             </div>
@@ -674,34 +755,32 @@ const SeniorTreasurerDashboard = () => {
                     </div>
                 </section>
 
-                {/* Events */}
-                <ScrollSection id="events" title="Events">
-                    {allEvents.length === 0 ? (
-                        <div className="w-full min-w-[300px] text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400 snap-start">
-                            No ongoing events.
-                        </div>
-                    ) : allEvents.map(event => (
+                {/* Event Highlights Section */}
+                <ScrollSection id="events" title="Institutional Events">
+                    {allEvents.map(event => (
                         <div 
-                            key={event.event_id}
-                            onClick={() => navigate(`/events/${event.event_id}`)}
-                            className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow snap-start cursor-pointer flex flex-col justify-between"
+                            key={event.event_id} 
+                            onClick={() => navigate(`/academic-staff/event/${event.event_id}`)} 
+                            className="min-w-[340px] bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all snap-start cursor-pointer flex flex-col justify-between group"
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                        {event.event_name ? event.event_name.substring(0, 2).toUpperCase() : 'EV'}
+                            <div>
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shadow-inner ${event.status === 'Completed' ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
+                                            {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
+                                        </div>
+                                        <h4 className="font-black text-gray-800 text-sm group-hover:text-teal-600 transition-colors">{event.event_name}</h4>
                                     </div>
-                                    <h3 className="font-bold text-gray-800 text-sm">{event.event_name}</h3>
+                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
                                 </div>
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                                <div className="space-y-4 mb-8 mt-6">
+                                    <div className="flex gap-4 items-center"><Calendar size={16} className="text-gray-300" /><span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{formatDate(event.start_date)}</span></div>
+                                    <div className="flex gap-4 items-center"><Users size={16} className="text-gray-300" /><span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{event.oc_count || 0} Committee Members</span></div>
+                                    <div className="flex gap-4 items-center"><FileText size={16} className="text-gray-300" /><span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{event.task_count || 0} Total Tasks</span></div>
+                                </div>
                             </div>
-                            <div className="space-y-3 mb-6">
-                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{new Date(event.start_date).toLocaleDateString()}</span></div>
-                                <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
-                                <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Total Tasks</span></div>
-                            </div>
-                            <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold">
-                                <span>View Details</span><ArrowRight size={14} />
+                            <div className="pt-4 border-t border-gray-50 flex justify-between items-center text-teal-600 text-[10px] font-black uppercase tracking-widest group-hover:gap-2 transition-all">
+                                <span>Administrative Oversight</span><ArrowRight size={14} />
                             </div>
                         </div>
                     ))}
@@ -737,7 +816,7 @@ const SeniorTreasurerDashboard = () => {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Record Date</p>
-                                    <p className="text-xs font-bold text-gray-600">{new Date(selectedEvidence.transaction_date).toLocaleDateString()}</p>
+                                    <p className="text-xs font-bold text-gray-600">{formatDate(selectedEvidence.transaction_date)}</p>
                                 </div>
                             </div>
 
@@ -753,7 +832,7 @@ const SeniorTreasurerDashboard = () => {
                                 </div>
                             </div>
 
-                            {/* Proof Link */}
+                            {/* Proof Section */}
                             {selectedEvidence.bill_proof_url ? (
                                 <div>
                                     <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -767,16 +846,66 @@ const SeniorTreasurerDashboard = () => {
                                     >
                                         <Search size={18} /> View High-Res Proof
                                     </a>
+                                    {selectedEvidence.status === 'Pending' && (
+                                        <div className="flex gap-3 mt-6">
+                                            <button 
+                                                onClick={() => {
+                                                    const txId = selectedEvidence.transaction_id;
+                                                    setSelectedEvidence(null);
+                                                    handleApproveTransaction(txId);
+                                                }}
+                                                className="flex-1 bg-teal-600 hover:bg-teal-700 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-widest shadow-lg shadow-teal-50 transition-all"
+                                            >
+                                                Verify & Approve
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    const txId = selectedEvidence.transaction_id;
+                                                    setSelectedEvidence(null);
+                                                    handleRejectTransaction(txId);
+                                                }}
+                                                className="flex-1 bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-xl py-3 font-bold text-xs uppercase tracking-widest transition-all"
+                                            >
+                                                Reject with Reason
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
-                                <div className="bg-red-50 p-6 rounded-xl border border-red-100 flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-red-500 shadow-sm">
-                                        <X size={20} />
+                                <>
+                                    <div className="bg-red-50 p-6 rounded-xl border border-red-100 flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-red-500 shadow-sm">
+                                            <X size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-none">No Proof Attached</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-none">No Proof Attached</p>
-                                    </div>
-                                </div>
+                                    {selectedEvidence.status === 'Pending' && (
+                                        <div className="flex gap-3 mt-6">
+                                            <button 
+                                                onClick={() => {
+                                                    const txId = selectedEvidence.transaction_id;
+                                                    setSelectedEvidence(null);
+                                                    handleApproveTransaction(txId);
+                                                }}
+                                                className="flex-1 bg-teal-600 hover:bg-teal-700 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-widest shadow-lg shadow-teal-50 transition-all"
+                                            >
+                                                Verify anyway
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    const txId = selectedEvidence.transaction_id;
+                                                    setSelectedEvidence(null);
+                                                    handleRejectTransaction(txId);
+                                                }}
+                                                className="flex-1 bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-xl py-3 font-bold text-xs uppercase tracking-widest transition-all"
+                                            >
+                                                Reject
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                         <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 flex justify-center">

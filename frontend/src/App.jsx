@@ -27,26 +27,26 @@ import NominateTerm from './pages/executive/NominateTerm';
 import TaskDetails from './pages/Shared/TaskDetails';
 import RecommendationLetterDraft from './pages/academic-staff/RecommendationLetterDraft';
 
-// --- THE "FIXED FRAME" LAYOUT ---
+// Global Layout Wrapper
 const Layout = ({ children }) => (
   <div className="flex h-screen bg-gray-50 font-sans overflow-hidden print:h-auto print:overflow-visible print:bg-white">
-    {/* 1. FIXED SIDEBAR (Left) */}
+    {/* Navigation Sidebar */}
     <div className="print:hidden">
       <Sidebar />
     </div>
 
-    {/* 2. RIGHT AREA (Header + Content + Footer) */}
+    {/* Main Application Area */}
     <div className="flex-1 flex flex-col h-screen min-w-0 print:h-auto print:overflow-visible">
-      {/* A. FIXED HEADER */}
+      {/* Persistent Header */}
       <div className="print:hidden">
         <Header />
       </div>
 
-      {/* B. CONTENT AREA (This is the part that scrolls vertically) */}
+      {/* Scrollable Content View */}
       <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth print:overflow-visible print:h-auto">
         {children}
         
-        {/* C. FOOTER (Inside scroll area so it appears at bottom of content) */}
+        {/* Application Footer */}
         <footer className="py-6 border-t border-gray-100 flex items-center justify-center bg-white/50 print:hidden">
           <p className="text-[10px] text-gray-400 font-medium">
             © {new Date().getFullYear()} Industrial Management Science Students' Association (IMSSA). All rights reserved.

@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Clock, Calendar } from 'lucide-react';
+import { formatDate } from '../utils/dateFormatter';
 
 const VolunteerTaskModal = ({ task, isOpen, onClose, onApply }) => {
     if (!isOpen || !task) return null;
@@ -28,7 +29,7 @@ const VolunteerTaskModal = ({ task, isOpen, onClose, onApply }) => {
 
                     <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
                         <Clock size={16} />
-                        <span className="font-medium">Due: {task.due}</span>
+                        <span className="font-medium">Due: {formatDate(task.due)}</span>
                     </div>
 
                     <div className="mb-8">
