@@ -95,7 +95,7 @@ const PresidentDashboard = () => {
     const ScrollSection = ({ id, title, children }) => (
         <div id={id} className="mb-8 scroll-mt-24">
             <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                <h3 className="text-xl font-bold text-gray-900">{title}</h3>
                 <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
@@ -291,7 +291,7 @@ const PresidentDashboard = () => {
 
                 {/* TERM MANAGEMENT (President only) */}
                 <div id="term-management" className="space-y-4 mb-8 scroll-mt-24">
-                    <h3 className="text-lg font-bold text-gray-900">Term Management</h3>
+                    <h3 className="text-xl font-bold text-gray-900">Term Management</h3>
                     <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex justify-between items-end">
                         <div>
                             <h4 className="text-md font-bold text-gray-800">Current Term</h4>

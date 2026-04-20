@@ -87,19 +87,19 @@ const ExecutiveDashboard = () => {
 
 
     const ScrollSection = ({ id, title, children }) => (
-        <div id={id} className="mb-8 scroll-mt-24">
-            <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-                <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
+        <div id={id} className="mb-14 scroll-mt-28">
+            <div className="flex justify-between items-end mb-6 px-1">
+                <h3 className="text-sm uppercase font-black text-slate-500 tracking-[0.2em]">{title}</h3>
+                <button className="text-teal-600 text-xs font-bold hover:text-teal-700 transition-colors uppercase tracking-widest text-[9px] btn-push">View All</button>
             </div>
-            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
+            <div className="flex gap-6 overflow-x-auto pb-10 scrollbar-hide snap-x p-1">
                 {children}
             </div>
         </div>
     );
 
     return (
-        <div className="pb-10 bg-gray-50 min-h-screen font-sans px-8 mt-10">
+        <div className="pb-10 min-h-screen px-8 mt-12 transition-all duration-500">
             <div className="max-w-7xl mx-auto">
 
                 <div className="flex justify-between items-center mb-10">
@@ -110,32 +110,32 @@ const ExecutiveDashboard = () => {
                             onClick={() => window.history.back()}
                         />
                         <div>
-                            <p className="text-2xl font-bold text-gray-900">
+                            <p className="text-3xl font-black text-slate-900 tracking-tight">
                                 Hi, {user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'there'} 👋
                             </p>
-                            <p className="text-sm text-gray-400 mt-0.5">Welcome back.</p>
+                            <p className="text-xs text-slate-400 font-semibold mt-1 uppercase tracking-widest">Executive Dashboard</p>
                         </div>
                     </div>
                     <button
                         onClick={() => navigate('/member/request-letter')}
-                        className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition-all text-xs"
+                        className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-teal-100 transition-all text-xs btn-push"
                     >
                         <FileText size={16} /> Request Letter
                     </button>
                 </div>
 
                 {/* PROFILE CARD */}
-                <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 mb-10">
-                    <div className="flex items-center gap-5 w-full">
+                <div className="depth-card p-8 flex flex-col md:flex-row justify-between items-center gap-8 mb-12">
+                    <div className="flex items-center gap-6 w-full">
                         <div
                             onClick={() => navigate('/member/profile')}
-                            className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-3xl cursor-pointer hover:bg-emerald-200 transition-colors"
+                            className="w-20 h-20 rounded-full bg-teal-50 border-4 border-white shadow-xl flex items-center justify-center text-teal-600 font-bold text-3xl cursor-pointer hover:scale-105 transition-all"
                         >
                             {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'E'}
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-gray-900">{user?.full_name || user?.name || 'Executive Member'}</h3>
-                            <p className="text-sm text-gray-500 mb-2">{user?.student_no || ''} • {user?.role_name || 'Executive Board'}</p>
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{user?.full_name || user?.name || 'Executive Member'}</h3>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">{user?.student_no || ''} • {user?.role_name || 'Executive Board'}</p>
                         </div>
                     </div>
                     <button onClick={() => navigate('/member/feedback')} className="bg-teal-100/50 text-teal-700 hover:bg-teal-100 px-6 py-2 rounded-lg text-sm font-medium transition-colors">
@@ -152,12 +152,12 @@ const ExecutiveDashboard = () => {
                         <div 
                             key={task.assignment_id} 
                             onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`)}
-                            className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-all group"
+                            className="min-w-[350px] depth-card p-6 flex flex-col justify-between snap-start cursor-pointer group"
                         >
                             <div>
-                                <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-bold text-gray-800 text-sm group-hover:text-blue-600 transition-colors">{task.title}</h4>
-                                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${task.assignment_status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                <div className="flex justify-between items-start mb-3">
+                                    <h4 className="font-bold text-slate-900 text-sm group-hover:text-teal-600 transition-colors uppercase tracking-tight">{task.title}</h4>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${task.assignment_status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
                                         {task.assignment_status}
                                     </span>
                                 </div>
@@ -171,7 +171,7 @@ const ExecutiveDashboard = () => {
                                         e.stopPropagation();
                                         navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`);
                                     }}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-xs font-bold transition"
+                                    className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-xl text-xs font-bold transition shadow-lg shadow-teal-200 btn-push"
                                 >
                                     Review
                                 </button>
@@ -186,7 +186,7 @@ const ExecutiveDashboard = () => {
                             No tasks assigned.
                         </div>
                     ) : myTasks.map(task => (
-                        <div key={task.id} onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`)} className="min-w-[320px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col snap-start group">
+                        <div key={task.id} onClick={() => navigate(`/exec/tasks/${task.id}/${task.assignment_id}?mode=review`)} className="min-w-[320px] depth-card p-6 cursor-pointer flex flex-col snap-start group">
                             <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600 transition-colors">{task.title}</h4>
                             <p className="text-xs text-gray-500 mb-4 line-clamp-2 flex-grow">{task.desc}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3"><Clock size={14} /> Due: {formatDate(task.due)}</div>
@@ -210,7 +210,7 @@ const ExecutiveDashboard = () => {
                         const maxVolunteers = op.max_volunteers || 5;
                         
                         return (
-                            <div key={op.id} onClick={() => setSelectedVolunteerTask(op)} className={`min-w-[320px] bg-white p-5 rounded-xl border flex flex-col hover:shadow-md transition-all snap-start cursor-pointer group ${isFull ? 'border-gray-200 opacity-75' : 'border-gray-100 shadow-sm'}`}>
+                            <div key={op.id} onClick={() => setSelectedVolunteerTask(op)} className={`min-w-[320px] depth-card p-6 flex flex-col snap-start cursor-pointer group ${isFull ? 'opacity-75 grayscale-[0.5]' : ''}`}>
                                 <h4 className="font-bold text-gray-800 text-sm mb-2 group-hover:text-teal-600">{op.title}</h4>
                                 <p className="text-xs text-gray-500 mb-4 h-10 line-clamp-2">{op.desc}</p>
                                 
@@ -230,9 +230,9 @@ const ExecutiveDashboard = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="mt-auto pt-3 border-t border-gray-50 flex justify-between items-center text-gray-500 group-hover:text-teal-600">
-                                    <span className="text-xs font-medium">Click to View</span>
-                                    <ChevronRight size={14} />
+                                <div className="mt-auto pt-4 border-t border-slate-50 flex justify-between items-center text-slate-400 group-hover:text-indigo-600">
+                                    <span className="text-xs font-semibold">View Details</span>
+                                    <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
                                 </div>
                             </div>
                         );
@@ -249,24 +249,24 @@ const ExecutiveDashboard = () => {
                         <div 
                             key={event.event_id} 
                             onClick={() => navigate(`/exec/event/${event.event_id}`)} 
-                            className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start flex flex-col justify-between"
+                            className="min-w-[340px] depth-card p-6 cursor-pointer snap-start flex flex-col justify-between group"
                         >
-                            <div className="flex justify-between items-start mb-4">
+                            <div className="flex justify-between items-start mb-5">
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shadow-sm border ${event.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-teal-50 text-teal-700 border-teal-100'}`}>
                                         {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
                                     </div>
-                                    <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
+                                    <h4 className="font-bold text-slate-900 text-sm group-hover:text-teal-600 transition-colors uppercase tracking-tight">{event.event_name}</h4>
                                 </div>
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${event.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-orange-50 text-orange-700 border-orange-100'}`}>{event.status}</span>
                             </div>
                             <div className="space-y-3 mb-6">
-                                <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{formatDate(event.start_date)}</span></div>
-                                <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
-                                <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
+                                <div className="flex gap-3"><Calendar size={14} className="text-slate-400" /><span className="text-xs text-slate-500 font-medium">{formatDate(event.start_date)}</span></div>
+                                <div className="flex gap-3"><Users size={14} className="text-slate-400" /><span className="text-xs text-slate-500 font-medium">{event.oc_count || 0} Committee Members</span></div>
+                                <div className="flex gap-3"><FileText size={14} className="text-slate-400" /><span className="text-xs text-slate-500 font-medium">{event.task_count || 0} Tasks</span></div>
                             </div>
-                            <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold cursor-pointer hover:text-blue-700">
-                                <span>View Details</span><ArrowRight size={14} />
+                            <div className="pt-4 border-t border-slate-50 flex justify-between items-center text-teal-600 text-xs font-bold btn-push">
+                                <span>View Details</span><ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                             </div>
                         </div>
                     ))}

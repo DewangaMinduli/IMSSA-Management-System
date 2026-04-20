@@ -170,41 +170,55 @@ const Sidebar = () => {
   ];
 
   // Role-based sidebar color
-  const sidebarBg = isAcademicStaff ? 'bg-slate-100' : 'bg-teal-50/50';
+  const sidebarBg = isAcademicStaff ? 'bg-slate-50' : 'bg-white';
 
   return (
-    <aside className={`w-64 flex-shrink-0 ${sidebarBg} border-r border-gray-200 h-full text-gray-600 flex flex-col z-50 shadow-sm font-sans`}>
+    <aside className={`w-64 flex-shrink-0 ${sidebarBg} border-r border-slate-100 h-full text-slate-600 flex flex-col z-50 transition-all font-sans`}>
 
       {/* Header */}
-      <div className="p-6 flex items-center gap-3 border-b border-gray-100">
-        <img src={logo} alt="IMSSA" className="w-8 h-8 object-contain" />
-        <span className="text-lg font-bold text-gray-800 tracking-tight">IMSSA</span>
+      <div className="p-8 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center border border-teal-500/20 shadow-sm">
+           <img src={logo} alt="IMSSA" className="w-6 h-6 object-contain" />
+        </div>
+        <div>
+           <span className="text-xl font-bold text-slate-900 tracking-tight block leading-none">IMSSA</span>
+           <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 block">Management</span>
+        </div>
       </div>
 
       {/* Menu */}
-      <nav className="flex-1 p-4 space-y-1 mt-2 overflow-y-auto">
-        {menus.filter(m => m.show).map((item) => (
-          <a
-            key={item.name}
-            href={item.path}
-            onClick={(e) => handleNavigation(e, item.path, item.id)}
-            className={`flex items-center gap-3 p-3 rounded-lg transition-all font-medium text-sm cursor-pointer hover:bg-gray-50 text-gray-500`}
-          >
-            {/* Icons Removed */}
-            <span>{item.name}</span>
-          </a>
-        ))}
+      <nav className="flex-1 px-4 space-y-1.5 mt-4 overflow-y-auto scrollbar-hide">
+        <div className="px-3 mb-2">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Main Navigation</p>
+        </div>
+        {menus.filter(m => m.show).map((item) => {
+          const isActive = location.pathname === item.path.split('#')[0] && (!item.id || location.hash === `#${item.id}`);
+          return (
+            <a
+              key={item.name}
+              href={item.path}
+              onClick={(e) => handleNavigation(e, item.path, item.id)}
+              className={`flex items-center gap-3 p-3 rounded-xl transition-all font-semibold text-sm cursor-pointer ${
+                isActive 
+                ? 'bg-teal-50 text-teal-700 border border-teal-200 shadow-sm' 
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+              }`}
+            >
+              <span>{item.name}</span>
+            </a>
+          );
+        })}
       </nav>
 
       {/* Footer User Info */}
-      <div className="p-4 border-t border-gray-100">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold border border-gray-200">
+      <div className="p-6 border-t border-slate-50 bg-slate-50/50">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-900 font-bold border border-slate-200 shadow-sm">
             {user.full_name?.charAt(0) || 'U'}
           </div>
           <div className="overflow-hidden">
-            <p className="text-sm font-bold truncate text-gray-800">{user.full_name}</p>
-            <p className="text-[10px] text-teal-600 truncate font-medium uppercase tracking-wider">
+            <p className="text-sm font-bold truncate text-slate-900">{user.full_name}</p>
+            <p className="text-[10px] text-slate-500 truncate font-semibold uppercase tracking-wider">
               {(user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer') ? "Senior Treasurer" :
                 (user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' || user.role_name === 'Academic_Staff' || user.role_name === 'Academic Staff') ? "Academic Staff" :
                   (user.role_name === 'President') ? "President" :

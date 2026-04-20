@@ -101,7 +101,7 @@ const AcademicStaffDashboard = () => {
     const ScrollSection = ({ id, title, children }) => (
         <div id={id} className="mb-10 scroll-mt-24">
             <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                <h3 className="text-xl font-bold text-gray-900">{title}</h3>
                 <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
@@ -155,7 +155,7 @@ const AcademicStaffDashboard = () => {
 
                 {/* ── 1. STUDENT SEARCH ── */}
                 <section id="student-search" className="mb-10 scroll-mt-24">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Search for Students</h2>
+                    <h2 className="text-xl font-bold text-gray-800 mb-4">Search for Students</h2>
                     <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3 mb-4">
                         <div className="flex-1 px-4">
                             <input
@@ -276,7 +276,7 @@ const AcademicStaffDashboard = () => {
 
                 {/* ── 2. SKILL INVENTORY ── */}
                 <section id="skill-inventory" className="mb-10 scroll-mt-24">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">Skill Inventory</h2>
+                    <h2 className="text-xl font-bold text-gray-800 mb-4">Skill Inventory</h2>
                     <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3 mb-4">
                         <div className="flex-1 px-4">
                             <input

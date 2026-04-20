@@ -79,7 +79,7 @@ const SeniorTreasurerDashboard = () => {
     const ScrollSection = ({ id, title, children }) => (
         <div id={id} className="mb-10 scroll-mt-24">
             <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                <h3 className="text-xl font-bold text-gray-900">{title}</h3>
                 <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
@@ -258,7 +258,7 @@ const SeniorTreasurerDashboard = () => {
                 <section id="audit-summary" className="mb-12">
                     <div className="flex justify-between items-end mb-6">
                         <div>
-                            <h2 className="text-lg font-bold text-gray-800">Account Oversight</h2>
+                            <h2 className="text-xl font-bold text-gray-800">Account Oversight</h2>
                             <p className="text-xs text-gray-400 mt-0.5 uppercase tracking-tighter font-bold">Real-time asset tracking</p>
                         </div>
                     </div>
@@ -301,7 +301,7 @@ const SeniorTreasurerDashboard = () => {
                     <div className="lg:col-span-2 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
                         <div className="flex justify-between items-center mb-8">
                             <div>
-                                <h3 className="text-lg font-bold text-gray-800">Fiscal Activity</h3>
+                                <h3 className="text-xl font-bold text-gray-800">Fiscal Activity</h3>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Transaction flow analysis</p>
                             </div>
                             <div className="flex gap-2">
@@ -358,7 +358,7 @@ const SeniorTreasurerDashboard = () => {
                     {/* Pending Actions Quickview */}
                     <div className="bg-gray-900 rounded-2xl p-8 text-white relative overflow-hidden flex flex-col justify-between">
                         <div className="relative z-10">
-                            <h3 className="text-lg font-bold">Audit Requirements</h3>
+                            <h3 className="text-xl font-bold">Audit Requirements</h3>
                             <p className="text-[10px] text-teal-400/80 font-bold uppercase tracking-widest mt-1">Status Overview</p>
                             
                             <div className="mt-10 space-y-6">

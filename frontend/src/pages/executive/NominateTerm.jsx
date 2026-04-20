@@ -5,6 +5,83 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotify } from '../../context/NotificationContext';
 import UserDropdown from '../../components/UserDropdown';
 
+// --- Search Suggestion Component ---
+// Defined OUTSIDE the main component to prevent re-creation on every render
+const StudentSearch = ({ index, field, value, placeholder, updateNominee }) => {
+    const [suggestions, setSuggestions] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setShowDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const fetchSuggestions = async (val) => {
+        if (val.length < 2) {
+            setSuggestions([]);
+            setShowDropdown(false);
+            return;
+        }
+        try {
+            const res = await fetch(`http://localhost:5000/api/users/search?q=${val}`);
+            if (res.ok) {
+                const data = await res.json();
+                setSuggestions(data);
+                setShowDropdown(data.length > 0);
+            }
+        } catch (err) {
+            console.error("Search error", err);
+        }
+    };
+
+    const handleSelect = (student) => {
+        updateNominee(index, 'name', student.full_name);
+        updateNominee(index, 'studentId', student.student_number);
+        setShowDropdown(false);
+    };
+
+    return (
+        <div className="relative w-full" ref={dropdownRef}>
+            <input
+                type="text"
+                placeholder={placeholder}
+                className="w-full border-b border-gray-200 py-2 text-sm outline-none focus:border-teal-500 placeholder-gray-300 transition-colors"
+                value={value}
+                onChange={(e) => {
+                    updateNominee(index, field, e.target.value);
+                    fetchSuggestions(e.target.value);
+                }}
+                onFocus={() => value.length >= 2 && setShowDropdown(true)}
+            />
+            {showDropdown && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-100 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto overflow-x-hidden">
+                    {suggestions.map((s) => (
+                        <div
+                            key={s.user_id}
+                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex items-center gap-3 transition-colors border-b border-gray-50 last:border-0"
+                            onClick={() => handleSelect(s)}
+                        >
+                            <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center text-teal-600">
+                                <User size={14} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-gray-900 truncate">{s.full_name}</p>
+                                <p className="text-[10px] text-gray-500 font-medium">{s.student_number} • {s.role_name}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const NominateTerm = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -76,82 +153,6 @@ const NominateTerm = () => {
         }
     };
 
-    // --- Search Suggestion Component ---
-    const StudentSearch = ({ index, field, value, placeholder }) => {
-        const [suggestions, setSuggestions] = useState([]);
-        const [showDropdown, setShowDropdown] = useState(false);
-        const dropdownRef = useRef(null);
-
-        useEffect(() => {
-            const handleClickOutside = (event) => {
-                if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                    setShowDropdown(false);
-                }
-            };
-            document.addEventListener('mousedown', handleClickOutside);
-            return () => document.removeEventListener('mousedown', handleClickOutside);
-        }, []);
-
-        const fetchSuggestions = async (val) => {
-            if (val.length < 2) {
-                setSuggestions([]);
-                setShowDropdown(false);
-                return;
-            }
-            try {
-                const res = await fetch(`http://localhost:5000/api/users/search?q=${val}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setSuggestions(data);
-                    setShowDropdown(data.length > 0);
-                }
-            } catch (err) {
-                console.error("Search error", err);
-            }
-        };
-
-        const handleSelect = (student) => {
-            updateNominee(index, 'name', student.full_name);
-            updateNominee(index, 'studentId', student.student_number);
-            setShowDropdown(false);
-        };
-
-        return (
-            <div className="relative w-full" ref={dropdownRef}>
-                <input
-                    type="text"
-                    placeholder={placeholder}
-                    className="w-full border-b border-gray-200 py-2 text-sm outline-none focus:border-teal-500 placeholder-gray-300 transition-colors"
-                    value={value}
-                    onChange={(e) => {
-                        updateNominee(index, field, e.target.value);
-                        fetchSuggestions(e.target.value);
-                    }}
-                    onFocus={() => value.length >= 2 && setShowDropdown(true)}
-                />
-                {showDropdown && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-100 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto overflow-x-hidden">
-                        {suggestions.map((s) => (
-                            <div
-                                key={s.user_id}
-                                className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex items-center gap-3 transition-colors border-b border-gray-50 last:border-0"
-                                onClick={() => handleSelect(s)}
-                            >
-                                <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center text-teal-600">
-                                    <User size={14} />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-semibold text-gray-900 truncate">{s.full_name}</p>
-                                    <p className="text-[10px] text-gray-500 font-medium">{s.student_number} • {s.role_name}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
     // Helper for navigation
     const navigateBack = () => {
         if (user?.role_name === 'President') navigate('/exec/president-dashboard');
@@ -206,7 +207,8 @@ const NominateTerm = () => {
                                         index={index} 
                                         field="name" 
                                         value={nomination.name} 
-                                        placeholder="Assignee Name" 
+                                        placeholder="Assignee Name"
+                                        updateNominee={updateNominee}
                                     />
                                 </div>
 
@@ -216,7 +218,8 @@ const NominateTerm = () => {
                                         index={index} 
                                         field="studentId" 
                                         value={nomination.studentId} 
-                                        placeholder="IM/XXXX/XXX" 
+                                        placeholder="IM/XXXX/XXX"
+                                        updateNominee={updateNominee}
                                     />
                                 </div>
 

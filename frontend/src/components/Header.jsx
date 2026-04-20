@@ -113,7 +113,7 @@ const Header = () => {
     };
 
     return (
-        <header className="bg-white border-b border-gray-100 sticky top-0 z-40 px-8 py-3 flex justify-between items-center">
+        <header className="glass-surface sticky top-0 z-40 px-8 py-3 flex justify-between items-center shadow-sm">
             <div className="flex-1"></div>
             <div className="flex items-center gap-4 relative">
                 <div className="relative" id="notification-container">

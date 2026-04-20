@@ -6,6 +6,7 @@ const MemberProfile = () => {
     const { user } = useAuth();
     const [profile, setProfile] = useState(null);
     const [skills, setSkills] = useState([]);
+    const [activityLog, setActivityLog] = useState({ completedTasks: [], eventRoles: [] });
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -30,6 +31,10 @@ const MemberProfile = () => {
                 if (analyticsRes && analyticsRes.ok) {
                     const analyticsData = await analyticsRes.json();
                     setSkills(analyticsData.skills || []);
+                    setActivityLog({
+                        completedTasks: analyticsData.completedTasks || [],
+                        eventRoles: analyticsData.eventRoles || []
+                    });
                 }
             } catch (err) {
                 console.error('Profile fetch error:', err);
@@ -255,6 +260,64 @@ const MemberProfile = () => {
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* ACTIVITY LOG SECTION — shown for Student user type */}
+            {isStudent && (
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-6">
+                    <h4 className="font-bold text-gray-800 mb-4 border-b border-gray-100 pb-3">Activity Log</h4>
+                    
+                    {/* Event Roles */}
+                    <div className="mb-6">
+                        <h5 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3">Organizing Committee Roles</h5>
+                        {activityLog.eventRoles.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic">No organizing committee roles held yet.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {activityLog.eventRoles.map((role, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                <span className="text-blue-600 font-bold text-xs">{role.event_name?.charAt(0) || 'E'}</span>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-800">{role.event_name}</p>
+                                                <p className="text-xs text-gray-500">{role.role}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Completed Tasks */}
+                    <div>
+                        <h5 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3">Completed Tasks</h5>
+                        {activityLog.completedTasks.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic">No completed tasks yet.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {activityLog.completedTasks.map((task, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-800">{task.task_name}</p>
+                                                <p className="text-xs text-gray-500">{task.event_name}</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">Completed</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

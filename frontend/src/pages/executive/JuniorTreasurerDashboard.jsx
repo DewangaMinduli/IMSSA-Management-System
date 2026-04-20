@@ -289,7 +289,7 @@ const JuniorTreasurerDashboard = () => {
     const ScrollSection = ({ id, title, children }) => (
         <div id={id} className="mb-8 scroll-mt-24">
             <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                <h3 className="text-xl font-bold text-gray-900">{title}</h3>
                 <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
@@ -355,38 +355,38 @@ const JuniorTreasurerDashboard = () => {
 
                 {/* 4. FINANCIAL OVERVIEW (Accounts) */}
                 <section id="financial-overview" className="mb-10 scroll-mt-24">
-                    <h2 className="text-lg font-bold text-gray-700 mb-4">Financial Overview</h2>
+                    <h2 className="text-xl font-bold text-gray-700 mb-4">Financial Overview</h2>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* Total Net Worth Card */}
-                        <div className="bg-gradient-to-br from-teal-500 to-teal-700 p-5 rounded-xl shadow-md text-white border-0 flex flex-col justify-between relative overflow-hidden h-full">
-                            <TrendingUp className="absolute -right-2 -bottom-2 text-white/10 opacity-20" size={100} />
-                            <div>
+                        <div className="bg-gradient-to-br from-teal-500 to-teal-700 p-6 rounded-2xl shadow-xl shadow-teal-100 text-white border-0 flex flex-col justify-between relative overflow-hidden h-full group transition-all hover:scale-[1.02]">
+                            <TrendingUp className="absolute -right-2 -bottom-2 text-white/10 opacity-20 group-hover:scale-110 transition-transform duration-500" size={100} />
+                            <div className="relative z-10">
                                 <p className="text-[10px] uppercase font-bold tracking-widest text-teal-100/80">Total Net Worth</p>
-                                <h3 className="text-xl font-black mt-2">
+                                <h3 className="text-2xl font-black mt-2">
                                     Rs. {data.accounts.reduce((sum, acc) => sum + parseFloat(acc.current_balance || 0), 0).toLocaleString()}
                                 </h3>
                             </div>
                         </div>
 
                         {data.accounts.map(acc => (
-                            <div key={acc.account_id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group h-full transition-all hover:shadow-md">
-                                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <div key={acc.account_id} className="depth-card p-6 flex flex-col justify-between relative overflow-hidden group h-full">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <CreditCard size={40} className="text-teal-600" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400">{acc.account_name}</p>
-                                    <h3 className={`text-xl font-bold mt-1.5 ${Number(acc.current_balance) < 0 ? 'text-red-500' : 'text-gray-800'}`}>
+                                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">{acc.account_name}</p>
+                                    <h3 className={`text-xl font-bold mt-1.5 ${Number(acc.current_balance) < 0 ? 'text-rose-500' : 'text-slate-800'}`}>
                                         Rs. {Number(acc.current_balance).toLocaleString()}
                                     </h3>
                                 </div>
-                                <div className="mt-4 flex items-center justify-between">
+                                <div className="mt-5 flex items-center justify-between">
                                     <button 
                                         onClick={() => setIsSyncing(acc)}
-                                        className="text-[8px] font-bold text-teal-600 hover:text-teal-800 uppercase bg-teal-50 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                                        className="text-[9px] font-bold text-teal-600 hover:text-teal-700 uppercase bg-teal-50 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-all btn-push"
                                     >
                                         <RefreshCw size={10} /> Sync with Bank
                                     </button>
-                                    <ChevronRight size={14} className="text-gray-300 group-hover:text-teal-500 transition-colors" />
+                                    <ChevronRight size={14} className="text-slate-300 group-hover:text-teal-500 transition-colors group-hover:translate-x-1" />
                                 </div>
                             </div>
                         ))}
@@ -397,20 +397,20 @@ const JuniorTreasurerDashboard = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
                     {/* Transaction List with Filters */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                        <div className="depth-card p-8">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
                                 <div>
-                                    <h2 className="text-lg font-bold text-gray-700">Transactions</h2>
-                                    <p className="text-xs text-gray-400 mt-1">Manage and monitor association movement.</p>
+                                    <h2 className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-1">Audit Log</h2>
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Transactions</h3>
                                 </div>
                                 
                                 {/* Filter Controls */}
-                                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                <div className="flex flex-wrap gap-3 w-full md:w-auto">
                                     <select 
                                         name="account_id" 
                                         value={filters.account_id} 
                                         onChange={handleFilterChange}
-                                        className="text-xs border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 bg-gray-50 font-medium"
+                                        className="text-xs border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-slate-50 font-bold text-slate-700 transition-all cursor-pointer"
                                     >
                                         <option value="">All Accounts</option>
                                         {data.accounts.map(acc => <option key={acc.account_id} value={acc.account_id}>{acc.account_name}</option>)}
@@ -419,7 +419,7 @@ const JuniorTreasurerDashboard = () => {
                                         name="event_id" 
                                         value={filters.event_id} 
                                         onChange={handleFilterChange}
-                                        className="text-xs border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 bg-gray-50 font-medium"
+                                        className="text-xs border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-slate-50 font-bold text-slate-700 transition-all cursor-pointer"
                                     >
                                         <option value="">All Events</option>
                                         {data.events.map(ev => <option key={ev.event_id} value={ev.event_id}>{ev.event_name}</option>)}
@@ -429,18 +429,18 @@ const JuniorTreasurerDashboard = () => {
 
                             {/* Live Summary Bar */}
                             {data.transactions.length > 0 && (
-                                <div className="grid grid-cols-3 gap-4 mb-8 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                    <div className="text-center border-r border-gray-200">
-                                        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Total In</p>
-                                        <p className="text-sm font-bold text-green-600">Rs. {calculateFilteredSummary().totalIncome.toLocaleString()}</p>
+                                <div className="grid grid-cols-3 gap-6 mb-10 p-6 bg-slate-50/80 rounded-2xl border border-slate-100 backdrop-blur-sm">
+                                    <div className="text-center border-r border-slate-200">
+                                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2">Total In</p>
+                                        <p className="text-lg font-black text-emerald-600">Rs. {calculateFilteredSummary().totalIncome.toLocaleString()}</p>
                                     </div>
-                                    <div className="text-center border-r border-gray-200">
-                                        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Total Out</p>
-                                        <p className="text-sm font-bold text-red-500">Rs. {calculateFilteredSummary().totalExpense.toLocaleString()}</p>
+                                    <div className="text-center border-r border-slate-200">
+                                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2">Total Out</p>
+                                        <p className="text-lg font-black text-rose-500">Rs. {calculateFilteredSummary().totalExpense.toLocaleString()}</p>
                                     </div>
                                     <div className="text-center">
-                                        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Net Flow</p>
-                                        <p className={`text-sm font-bold ${calculateFilteredSummary().net >= 0 ? 'text-teal-600' : 'text-orange-600'}`}>
+                                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2">Net Flow</p>
+                                        <p className={`text-lg font-black ${calculateFilteredSummary().net >= 0 ? 'text-teal-600' : 'text-orange-600'}`}>
                                             Rs. {calculateFilteredSummary().net.toLocaleString()}
                                         </p>
                                     </div>

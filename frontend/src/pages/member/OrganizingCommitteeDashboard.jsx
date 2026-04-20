@@ -142,12 +142,12 @@ const OrganizingCommitteeDashboard = () => {
 
     // Reusable Horizontal Scroll Section Component
     const ScrollSection = ({ id, title, children }) => (
-        <div id={id} className="mb-10 scroll-mt-24">
-            <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-                <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
+        <div id={id} className="mb-14 scroll-mt-28">
+            <div className="flex justify-between items-end mb-6 px-1">
+                <h3 className="text-sm uppercase font-black text-slate-500 tracking-[0.2em]">{title}</h3>
+                <button className="text-teal-600 text-xs font-bold hover:text-teal-700 transition-colors uppercase tracking-widest text-[9px] btn-push">View All</button>
             </div>
-            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
+            <div className="flex gap-6 overflow-x-auto pb-10 scrollbar-hide snap-x p-1">
                 {children}
             </div>
         </div>
@@ -172,14 +172,14 @@ const OrganizingCommitteeDashboard = () => {
                     </div>
                     <button
                         onClick={() => navigate('/member/request-letter')}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg shadow-indigo-100 btn-push"
                     >
                         <FileText size={16} /> Request Letter
                     </button>
                 </div>
 
                 {/* PROFILE CARD */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex justify-between items-center mb-10">
+                <div className="depth-card p-8 flex justify-between items-center mb-12">
                     <div className="flex items-center gap-5">
                         <div
                             onClick={() => navigate('/member/profile')}
@@ -211,24 +211,24 @@ const OrganizingCommitteeDashboard = () => {
                             <div
                                 key={event.event_id}
                                 onClick={() => navigate(`/member/event/${event.event_id}`)}
-                                className="min-w-[340px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer snap-start flex flex-col justify-between"
+                                className="min-w-[340px] depth-card p-6 cursor-pointer snap-start flex flex-col justify-between group"
                             >
-                                <div className="flex justify-between items-start mb-4">
+                                <div className="flex justify-between items-start mb-5">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shadow-sm border ${event.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
                                             {event.event_name?.substring(0, 2).toUpperCase() || 'EV'}
                                         </div>
-                                        <h4 className="font-bold text-gray-800 text-sm">{event.event_name}</h4>
+                                        <h4 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{event.event_name}</h4>
                                     </div>
-                                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${event.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{event.status}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${event.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-orange-50 text-orange-700 border-orange-100'}`}>{event.status}</span>
                                 </div>
-                                 <div className="space-y-3 mb-6">
-                                    <div className="flex gap-3"><Calendar size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{formatDate(event.start_date)}</span></div>
-                                    <div className="flex gap-3"><Users size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.oc_count || 0} Committee Members</span></div>
-                                    <div className="flex gap-3"><FileText size={14} className="text-gray-400" /><span className="text-xs text-gray-500">{event.task_count || 0} Tasks</span></div>
+                                <div className="space-y-3 mb-6">
+                                    <div className="flex gap-3"><Calendar size={14} className="text-slate-400" /><span className="text-xs text-slate-500 font-medium">{formatDate(event.start_date)}</span></div>
+                                    <div className="flex gap-3"><Users size={14} className="text-slate-400" /><span className="text-xs text-slate-500 font-medium">{event.oc_count || 0} Committee Members</span></div>
+                                    <div className="flex gap-3"><FileText size={14} className="text-slate-400" /><span className="text-xs text-slate-500 font-medium">{event.task_count || 0} Tasks</span></div>
                                 </div>
-                                <div className="pt-3 border-t border-gray-50 flex justify-between items-center text-blue-600 text-xs font-bold hover:text-blue-700 transition-colors">
-                                    <span>View Details</span><ArrowRight size={14} />
+                                <div className="pt-4 border-t border-slate-50 flex justify-between items-center text-indigo-600 text-xs font-bold btn-push">
+                                    <span>View Details</span><ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                                 </div>
                             </div>
                         )
@@ -246,7 +246,7 @@ const OrganizingCommitteeDashboard = () => {
                             <div 
                                 key={task.assignment_id} 
                                 onClick={() => navigate(`/member/tasks/${task.id}/${task.assignment_id}`)}
-                                className="min-w-[350px] bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between snap-start cursor-pointer hover:shadow-md transition-all group"
+                                className="min-w-[350px] depth-card p-6 flex flex-col justify-between snap-start cursor-pointer group"
                             >
                                 <div>
                                     <div className="flex justify-between items-start mb-2">

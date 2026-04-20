@@ -29,7 +29,7 @@ import RecommendationLetterDraft from './pages/academic-staff/RecommendationLett
 
 // Global Layout Wrapper
 const Layout = ({ children }) => (
-  <div className="flex h-screen bg-gray-50 font-sans overflow-hidden print:h-auto print:overflow-visible print:bg-white">
+  <div className="flex h-screen bg-slate-50 font-sans overflow-hidden print:h-auto print:overflow-visible print:bg-white text-slate-900">
     {/* Navigation Sidebar */}
     <div className="print:hidden">
       <Sidebar />
@@ -43,15 +43,22 @@ const Layout = ({ children }) => (
       </div>
 
       {/* Scrollable Content View */}
-      <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth print:overflow-visible print:h-auto">
-        {children}
-        
-        {/* Application Footer */}
-        <footer className="py-6 border-t border-gray-100 flex items-center justify-center bg-white/50 print:hidden">
-          <p className="text-[10px] text-gray-400 font-medium">
-            © {new Date().getFullYear()} Industrial Management Science Students' Association (IMSSA). All rights reserved.
-          </p>
-        </footer>
+      <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden relative scroll-smooth print:overflow-visible print:h-auto scrollbar-hide">
+        <div className="min-h-full flex flex-col">
+          <div className="flex-1">
+            {children}
+          </div>
+          
+          {/* Application Footer */}
+          <footer className="py-10 border-t border-slate-100 flex items-center justify-center bg-white/30 backdrop-blur-sm print:hidden mt-auto">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
+                © {new Date().getFullYear()} IMSSA Management System
+              </p>
+            </div>
+          </footer>
+        </div>
       </main>
     </div>
   </div>

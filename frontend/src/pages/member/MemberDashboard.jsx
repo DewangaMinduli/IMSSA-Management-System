@@ -89,7 +89,7 @@ const MemberDashboard = () => {
     const ScrollSection = ({ id, title, children }) => (
         <div id={id} className="mb-8 scroll-mt-24">
             <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+                <h3 className="text-xl font-bold text-gray-900">{title}</h3>
                 <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">

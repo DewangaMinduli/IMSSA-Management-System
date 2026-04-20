@@ -499,17 +499,20 @@ const UnifiedEventDetails = () => {
 
     const renderTasks = () => (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-gray-800">Task Summary</h3>
+            <div className="flex justify-between items-end mb-8 px-1">
+                <div>
+                   <p className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-1">Management</p>
+                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Task Summary</h3>
+                </div>
                 {canManage && (
-                    <button onClick={() => setShowTaskModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
+                    <button onClick={() => setShowTaskModal(true)} className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-teal-100 btn-push">
                         <Plus size={16} /> Add Task
                     </button>
                 )}
             </div>
             <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-500 font-medium text-xs uppercase">
+                    <thead className="bg-slate-50 text-slate-400 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
                         <tr>
                             <th className="px-6 py-4">Task</th>
                             <th className="px-6 py-4">Assigned To</th>
@@ -654,17 +657,20 @@ const UnifiedEventDetails = () => {
 
     const renderOC = () => (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-gray-800">OC Members</h3>
+            <div className="flex justify-between items-end mb-8 px-1">
+                <div>
+                   <p className="text-[10px] uppercase font-black text-slate-500 tracking-[0.2em] mb-1">Collaboration</p>
+                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Organizing Committee</h3>
+                </div>
                 {canManage && (
-                    <button onClick={() => setShowOcModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700">
-                        <Plus size={16} /> Add OC
+                    <button onClick={() => setShowOcModal(true)} className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-teal-100 btn-push">
+                        <Plus size={16} /> Add Member
                     </button>
                 )}
             </div>
             <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-500 font-medium">
+                    <thead className="bg-slate-50 text-slate-400 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
                         <tr>
                             <th className="px-6 py-4">Name</th>
                             <th className="px-6 py-4">Student ID</th>
@@ -1001,17 +1007,17 @@ const UnifiedEventDetails = () => {
                 </div>
 
                 {/* TABS */}
-                <div className="border-b border-gray-200 mb-8">
-                    <div className="flex gap-8">
+                <div className="mb-10 px-1">
+                    <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl w-fit">
                         {['Overview', 'Tasks', 'OC', 'Timeline', 'Partnerships']
                           .filter(tab => tab !== 'Partnerships' || isExecutive || isOC)
                           .map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === tab
-                                    ? 'text-blue-600 border-blue-600'
-                                    : 'text-gray-500 border-transparent hover:text-gray-800'
+                                className={`px-6 py-2.5 text-sm font-semibold rounded-xl transition-all ${activeTab === tab
+                                    ? 'bg-white text-teal-600 shadow-md scale-100'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 scale-[0.98]'
                                     }`}
                             >
                                 {tab}
@@ -1021,7 +1027,7 @@ const UnifiedEventDetails = () => {
                 </div>
 
                 {/* CONTENT AREA */}
-                <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm min-h-[400px]">
+                <div className="depth-card p-10 min-h-[500px]">
                     {activeTab === 'Overview' && renderOverview()}
                     {activeTab === 'Tasks' && renderTasks()}
                     {activeTab === 'OC' && renderOC()}
@@ -1192,7 +1198,9 @@ const UnifiedEventDetails = () => {
                                 </div>
                             </div>
 
-                            <button type="submit" className="w-full bg-blue-600 text-white mt-4 py-3 rounded-lg font-bold text-sm tracking-wide shadow-sm hover:bg-blue-700 transition-colors">{editTaskId ? 'Update Task' : 'Add Task'}</button>
+                                                        <button type="submit" className="w-full bg-teal-600 text-white mt-6 py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-teal-100/50 hover:bg-teal-700 transition-all btn-push">
+                                {editTaskId ? 'Update Task' : 'Add Task'}
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -1201,9 +1209,12 @@ const UnifiedEventDetails = () => {
             {showOcModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
                     <div className="bg-white p-6 rounded-xl w-[400px] shadow-2xl overflow-visible">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">Add OC Member</h3>
-                            <button onClick={() => setShowOcModal(false)}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Collaboration</p>
+                                <h3 className="font-black text-xl text-slate-900 tracking-tight">Add OC Member</h3>
+                            </div>
+                            <button onClick={() => setShowOcModal(false)}><X size={20} className="text-slate-400 hover:text-slate-600" /></button>
                         </div>
                         <form onSubmit={handleAddOC} className="space-y-4">
                             <div className="relative">
