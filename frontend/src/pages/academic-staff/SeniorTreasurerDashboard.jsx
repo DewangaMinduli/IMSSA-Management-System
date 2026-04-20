@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Calendar, Users, Clock, ArrowRight, Bell, Home, X, Download, TrendingUp, TrendingDown, DollarSign, Trash2, Plus } from 'lucide-react';
+import { Search, FileText, Calendar, Users, Clock, ArrowRight, Bell, Home, X, Download, TrendingUp, TrendingDown, DollarSign, Trash2, Plus, CreditCard } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import UserDropdown from '../../components/UserDropdown';
 import { Link, useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNotify } from '../../context/NotificationContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import BudgetReportModal from '../../components/BudgetReportModal';
@@ -79,7 +78,7 @@ const SeniorTreasurerDashboard = () => {
     const ScrollSection = ({ id, title, children }) => (
         <div id={id} className="mb-10 scroll-mt-24">
             <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
                 <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
@@ -258,7 +257,7 @@ const SeniorTreasurerDashboard = () => {
                 <section id="audit-summary" className="mb-12">
                     <div className="flex justify-between items-end mb-6">
                         <div>
-                            <h2 className="text-xl font-bold text-gray-800">Account Oversight</h2>
+                            <h2 className="text-lg font-bold text-gray-800">Account Oversight</h2>
                             <p className="text-xs text-gray-400 mt-0.5 uppercase tracking-tighter font-bold">Real-time asset tracking</p>
                         </div>
                     </div>
@@ -296,98 +295,38 @@ const SeniorTreasurerDashboard = () => {
                     </div>
                 </section>
 
-                {/* 2. ANALYTICS CHART */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                    <div className="lg:col-span-2 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-800">Fiscal Activity</h3>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Transaction flow analysis</p>
-                            </div>
-                            <div className="flex gap-2">
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
-                                    <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
-                                    <span className="text-[10px] font-bold text-teal-700">Income</span>
+                {/* 2. AUDIT REQUIREMENTS PANEL */}
+                <div className="bg-gray-900 rounded-2xl p-8 text-white relative overflow-hidden flex flex-col justify-between mb-12 max-w-md">
+                    <div className="relative z-10">
+                        <h3 className="text-lg font-bold">Audit Requirements</h3>
+                        <p className="text-[10px] text-teal-400/80 font-bold uppercase tracking-widest mt-1">Status Overview</p>
+                        
+                        <div className="mt-10 space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2 bg-teal-500/20 rounded-lg text-teal-400"><Clock size={18} /></div>
+                                    <span className="text-sm font-medium text-gray-300">Awaiting Verification</span>
                                 </div>
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
-                                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                                    <span className="text-[10px] font-bold text-red-700">Expenses</span>
-                                </div>
+                                <span className="text-lg font-black">{financeData.transactions.filter(t => t.status === 'Pending').length}</span>
                             </div>
-                        </div>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={financeData.transactions.slice(0, 10).reverse()}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis 
-                                        dataKey="transaction_date" 
-                                        tickFormatter={(date) => formatDate(date)}
-                                        tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}}
-                                        axisLine={false}
-                                        tickLine={false}
-                                    />
-                                    <YAxis hide />
-                                    <Tooltip 
-                                        cursor={{fill: '#f8fafc'}}
-                                        content={({ active, payload }) => {
-                                            if (active && payload && payload.length) {
-                                                const d = payload[0].payload;
-                                                return (
-                                                    <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-xl">
-                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{d.description}</p>
-                                                        <p className={`text-sm font-black ${d.transaction_type === 'Income' ? 'text-teal-600' : 'text-red-500'}`}>
-                                                            Rs. {Number(d.amount).toLocaleString()}
-                                                        </p>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        }}
-                                    />
-                                    <Bar 
-                                        dataKey="amount" 
-                                        radius={[4, 4, 4, 4]}
-                                        barSize={32}
-                                        fill={({ payload }) => payload.transaction_type === 'Income' ? '#0d9488' : '#ef4444'} 
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><FileText size={18} /></div>
+                                    <span className="text-sm font-medium text-gray-300">Letter Requests</span>
+                                </div>
+                                <span className="text-lg font-black">{recRequests.filter(r => r.status === 'Pending').length}</span>
+                            </div>
                         </div>
                     </div>
-
-                    {/* Pending Actions Quickview */}
-                    <div className="bg-gray-900 rounded-2xl p-8 text-white relative overflow-hidden flex flex-col justify-between">
-                        <div className="relative z-10">
-                            <h3 className="text-xl font-bold">Audit Requirements</h3>
-                            <p className="text-[10px] text-teal-400/80 font-bold uppercase tracking-widest mt-1">Status Overview</p>
-                            
-                            <div className="mt-10 space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-2 bg-teal-500/20 rounded-lg text-teal-400"><Clock size={18} /></div>
-                                        <span className="text-sm font-medium text-gray-300">Awaiting Verification</span>
-                                    </div>
-                                    <span className="text-lg font-black">{financeData.transactions.filter(t => t.status === 'Pending').length}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400"><FileText size={18} /></div>
-                                        <span className="text-sm font-medium text-gray-300">Letter Requests</span>
-                                    </div>
-                                    <span className="text-lg font-black">{recRequests.filter(r => r.status === 'Pending').length}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-10 pt-6 border-t border-white/5 relative z-10">
-                            <button 
-                                onClick={() => document.getElementById('audit-queue').scrollIntoView({ behavior: 'smooth' })}
-                                className="w-full bg-white text-gray-900 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
-                            >
-                                Open Review Queue <ArrowRight size={14} />
-                            </button>
-                        </div>
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="mt-10 pt-6 border-t border-white/5 relative z-10">
+                        <button 
+                            onClick={() => document.getElementById('audit-queue').scrollIntoView({ behavior: 'smooth' })}
+                            className="w-full bg-white text-gray-900 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg hover:bg-teal-50 transition-all flex items-center justify-center gap-2"
+                        >
+                            Open Review Queue <ArrowRight size={14} />
+                        </button>
                     </div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
                 </div>
 
                 {/* 3. TRANSACTION AUDIT QUEUE */}

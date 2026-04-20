@@ -142,12 +142,12 @@ const OrganizingCommitteeDashboard = () => {
 
     // Reusable Horizontal Scroll Section Component
     const ScrollSection = ({ id, title, children }) => (
-        <div id={id} className="mb-14 scroll-mt-28">
-            <div className="flex justify-between items-end mb-6 px-1">
-                <h3 className="text-sm uppercase font-black text-slate-500 tracking-[0.2em]">{title}</h3>
-                <button className="text-teal-600 text-xs font-bold hover:text-teal-700 transition-colors uppercase tracking-widest text-[9px] btn-push">View All</button>
+        <div id={id} className="mb-8 scroll-mt-24">
+            <div className="flex justify-between items-center mb-4 px-1">
+                <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+                <button className="text-teal-600 text-xs font-semibold hover:underline">View All</button>
             </div>
-            <div className="flex gap-6 overflow-x-auto pb-10 scrollbar-hide snap-x p-1">
+            <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
                 {children}
             </div>
         </div>

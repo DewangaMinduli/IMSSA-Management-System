@@ -116,6 +116,7 @@ export default function App() {
               <Routes>
                 <Route path="dashboard" element={<AcademicStaffDashboard />} />
                 <Route path="senior-treasurer-dashboard" element={<SeniorTreasurerDashboard />} />
+                <Route path="event/:eventId" element={<UnifiedEventDetails />} />
                 <Route path="feedback" element={<AcademicFeedback />} />
                 <Route path="recommendation-letter/:requestId" element={<RecommendationLetterDraft />} />
               </Routes>
