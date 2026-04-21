@@ -366,14 +366,19 @@ const UnifiedEventDetails = () => {
     const [loading, setLoading] = useState(true);
 
     // User Access Controls
-    const isExecutive = user?.hierarchy_level >= 3 && user?.hierarchy_level <= 5;
-    const isPresident = user?.hierarchy_level === 5;
-    const isStaff = user?.hierarchy_level >= 6 || user?.user_type === 'Academic_Staff';
+    // Permission Logic
+    // Permission Logic
+    // Permission Logic - Based strictly on assigned roles, not academic levels
+    const isExecutive = ['President', 'Junior Treasurer', 'Secretary', 'Executive Board'].includes(user?.role_name) || user?.role === 'executive';
+    const isPresident = user?.role_name === 'President';
+    const isSeniorTreasurer = user?.role_name === 'Senior Treasurer' || user?.role === 'senior_treasurer';
+    const isAcademicStaff = user?.user_type === 'Academic_Staff' || user?.user_type === 'Academic Staff';
     
     const [isOC, setIsOC] = useState(false);
-    // Executive Board (JT/ST/Pres) and the event's OC members can manage/edit events. 
-    // Other members and Academic Staff are READ-ONLY.
-    const canManage = (isExecutive || isOC) && !isStaff;
+    
+    // canManage: Executives and specific OC members can edit the event details.
+    // Senior Treasurer and Academic Staff have read-only visibility.
+    const canManage = (isExecutive || isOC) && !isAcademicStaff;
     const isReadOnly = !canManage;
 
     const [editingId, setEditingId] = useState(null);
@@ -393,9 +398,11 @@ const UnifiedEventDetails = () => {
                 const fetchedData = await res.json();
                 setData(fetchedData);
                 // Check if user is in OC
-                if (fetchedData.committee) {
-                    const found = fetchedData.committee.some(c => c.id === user?.student_no);
+                if (fetchedData.committee && user?.student_no) {
+                    const found = fetchedData.committee.some(c => (c.student_id === user.student_no || c.id === user.student_no));
                     setIsOC(found);
+                } else {
+                    setIsOC(false);
                 }
                 if (fetchedData.tasks) checkTaskHealth(fetchedData.tasks);
             }
@@ -1010,7 +1017,7 @@ const UnifiedEventDetails = () => {
                 <div className="mb-10 px-1">
                     <div className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl w-fit">
                         {['Overview', 'Tasks', 'OC', 'Timeline', 'Partnerships']
-                          .filter(tab => tab !== 'Partnerships' || isExecutive || isOC)
+                          .filter(tab => tab !== 'Partnerships' || isExecutive || isOC || isSeniorTreasurer)
                           .map(tab => (
                             <button
                                 key={tab}

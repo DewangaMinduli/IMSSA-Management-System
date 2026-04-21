@@ -738,68 +738,7 @@ const JuniorTreasurerDashboard = () => {
                 onApply={handleApply}
             />
 
-            {/* MODAL: Report Generation */}
-            {showReportModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-gray-800">Generate Report</h3>
-                            <button onClick={() => setShowReportModal(false)} className="text-gray-400 hover:text-gray-600">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            <p className="text-sm text-gray-500">Select the type of report you want to generate:</p>
 
-                            <div className="space-y-3">
-                                <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${reportType === 'overall' ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-teal-200'}`}>
-                                    <input type="radio" name="reportType" value="overall" checked={reportType === 'overall'} onChange={() => setReportType('overall')} className="text-teal-600 focus:ring-teal-500" />
-                                    <div>
-                                        <span className="block text-sm font-bold text-gray-800">Overall Budget Report</span>
-                                        <span className="block text-xs text-gray-500">Complete analysis of all accounts and events</span>
-                                    </div>
-                                </label>
-
-                                <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${reportType === 'event' ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-teal-200'}`}>
-                                    <input type="radio" name="reportType" value="event" checked={reportType === 'event'} onChange={() => setReportType('event')} className="text-teal-600 focus:ring-teal-500" />
-                                    <div>
-                                        <span className="block text-sm font-bold text-gray-800">Event Specific Report</span>
-                                        <span className="block text-xs text-gray-500">Detailed expenses for a selected event</span>
-                                    </div>
-                                </label>
-
-                                <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${reportType === 'account' ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-teal-200'}`}>
-                                    <input type="radio" name="reportType" value="account" checked={reportType === 'account'} onChange={() => setReportType('account')} className="text-teal-600 focus:ring-teal-500" />
-                                    <div>
-                                        <span className="block text-sm font-bold text-gray-800">Account Statement</span>
-                                        <span className="block text-xs text-gray-500">Transaction history for a specific account</span>
-                                    </div>
-                                </label>
-                            </div>
-
-                            {reportType === 'event' && (
-                                <select className="w-full mt-2 border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-teal-500 bg-gray-50">
-                                    <option>Select Event...</option>
-                                    {data.events.map(e => <option key={e.event_id}>{e.event_name}</option>)}
-                                </select>
-                            )}
-                            {reportType === 'account' && (
-                                <select className="w-full mt-2 border border-gray-200 rounded-lg p-2 text-sm outline-none focus:border-teal-500 bg-gray-50">
-                                    <option>Select Account...</option>
-                                    {data.accounts.map(a => <option key={a.account_id}>{a.account_name}</option>)}
-                                </select>
-                            )}
-
-                        </div>
-                        <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-                            <button onClick={() => setShowReportModal(false)} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">Cancel</button>
-                            <button onClick={handleGenerateReport} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors">
-                                <Download size={16} /> Generate PDF
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
             {/* 7. SYNC WITH BANK MODAL */}
             {isSyncing && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">

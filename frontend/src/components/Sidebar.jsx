@@ -36,6 +36,9 @@ const Sidebar = () => {
   const isAcademicStaff = user.user_type === 'Academic_Staff' || user.user_type === 'Academic Staff' ||
     user.role_name === 'Senior_Treasurer' || user.role_name === 'Senior Treasurer' || user.role === 'senior_treasurer' || user.role_name === 'Academic Staff' || user.role_name === 'Academic_Staff';
 
+  const isExecutiveUser = ['President', 'Junior Treasurer', 'Secretary', 'Executive Board'].includes(user.role_name) || user.role === 'executive';
+  const isOCUser = ['Organizing_Committee', 'Organizing Committee'].includes(user.role_name) || user.role === 'organizing_committee';
+
   const menus = [
     // COMMON: Dynamic Home Link
     {
@@ -45,7 +48,7 @@ const Sidebar = () => {
           (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer') ? '/exec/junior-treasurer-dashboard' :
             (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard' :
               (user.role_name === 'President') ? '/exec/president-dashboard' :
-                (user.hierarchy_level >= 4 ? '/exec/dashboard' : '/member/dashboard'),
+                (isExecutiveUser ? '/exec/dashboard' : '/member/dashboard'),
       id: null,
       show: true
     },
@@ -55,20 +58,20 @@ const Sidebar = () => {
       name: 'My Events',
       path: '/member/oc-dashboard#my-events',
       id: 'my-events',
-      show: user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee'
+      show: isOCUser
     },
     {
       name: 'Tasks to Approve',
       path: '/member/oc-dashboard#tasks-to-approve',
       id: 'tasks-to-approve',
-      show: user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee'
+      show: isOCUser
     },
 
     {
       name: 'Finance Overview',
       path: '/exec/junior-treasurer-dashboard#financial-overview',
       id: 'financial-overview',
-      show: (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer' || user.hierarchy_level === 5) && user.role_name !== 'President' && !isAcademicStaff
+      show: (user.role_name === 'Junior_Treasurer' || user.role_name === 'Junior Treasurer') && !isAcademicStaff
     },
 
     // ACADEMIC STAFF & SENIOR TREASURER
@@ -117,47 +120,47 @@ const Sidebar = () => {
     // MEMBER (Students)
     {
       name: 'My Tasks',
-      path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#tasks' : '/member/dashboard',
+      path: (isOCUser) ? '/member/oc-dashboard#tasks' : '/member/dashboard',
       id: 'tasks',
-      show: user.user_type === 'Student' && user.hierarchy_level < 4 && !isAcademicStaff
+      show: user.user_type === 'Student' && !isExecutiveUser && !isAcademicStaff
     },
     {
       name: 'Volunteer Opportunities',
-      path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#volunteer' : '/member/dashboard#volunteer',
+      path: (isOCUser) ? '/member/oc-dashboard#volunteer' : '/member/dashboard#volunteer',
       id: 'volunteer',
-      show: user.user_type === 'Student' && user.hierarchy_level < 4 && !isAcademicStaff
+      show: user.user_type === 'Student' && !isExecutiveUser && !isAcademicStaff
     },
     {
       name: 'Events',
-      path: (user.role_name === 'Organizing_Committee' || user.role_name === 'Organizing Committee') ? '/member/oc-dashboard#events' : '/member/dashboard',
+      path: (isOCUser) ? '/member/oc-dashboard#events' : '/member/dashboard',
       id: 'events',
-      show: user.user_type === 'Student' && user.hierarchy_level < 4 && !isAcademicStaff
+      show: user.user_type === 'Student' && !isExecutiveUser && !isAcademicStaff
     },
 
-    // EXEC (Level 4+)
+    // EXEC (Pres/JT/Sec)
     {
       name: 'Tasks to Approve',
       path: (user.role_name === 'President') ? '/exec/president-dashboard#approve-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#approve-tasks' : '/exec/dashboard#approve-tasks',
       id: 'approve-tasks',
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && !isAcademicStaff
+      show: isExecutiveUser && !isAcademicStaff
     },
     {
       name: 'My Tasks',
       path: (user.role_name === 'President') ? '/exec/president-dashboard#my-tasks' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#my-tasks' : '/exec/dashboard#my-tasks',
       id: 'my-tasks',
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && !isAcademicStaff
+      show: isExecutiveUser && !isAcademicStaff
     },
     {
       name: 'Volunteer Opportunities',
       path: (user.role_name === 'President') ? '/exec/president-dashboard#volunteer-opportunities' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#volunteer-opportunities' : '/exec/dashboard#volunteer-opportunities',
       id: 'volunteer-opportunities',
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && !isAcademicStaff
+      show: isExecutiveUser && !isAcademicStaff
     },
     {
       name: 'Events',
       path: (user.role_name === 'President') ? '/exec/president-dashboard#events' : (user.role_name === 'Junior Treasurer' || user.role_name === 'Junior_Treasurer') ? '/exec/junior-treasurer-dashboard#events' : '/exec/dashboard#events',
       id: 'events',
-      show: (user.hierarchy_level >= 4 || user.user_type === 'Executive') && !isAcademicStaff
+      show: isExecutiveUser && !isAcademicStaff
     },
     {
       name: 'Term Management',
@@ -165,8 +168,6 @@ const Sidebar = () => {
       id: 'term-management',
       show: user.role_name === 'President'
     },
-
-
   ];
 
   // Role-based sidebar color
@@ -188,9 +189,7 @@ const Sidebar = () => {
 
       {/* Menu */}
       <nav className="flex-1 px-4 space-y-1.5 mt-4 overflow-y-auto scrollbar-hide">
-        <div className="px-3 mb-2">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Main Navigation</p>
-        </div>
+
         {menus.filter(m => m.show).map((item) => {
           const isActive = location.pathname === item.path.split('#')[0] && (!item.id || location.hash === `#${item.id}`);
           return (
